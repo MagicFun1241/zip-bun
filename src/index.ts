@@ -232,8 +232,12 @@ export class ZipArchiveWriter implements ZipWriter {
     const buffer = new ArrayBuffer(estimatedSize);
     const bufferPtr = ptr(buffer);
 
-    const resultSize = finalize_zip_in_memory_bytes(this.handleId, bufferPtr, estimatedSize);
-    
+    const resultSize = finalize_zip_in_memory_bytes(
+      this.handleId,
+      bufferPtr,
+      estimatedSize,
+    );
+
     if (resultSize <= 0) {
       throw new Error("Failed to finalize memory-based zip archive");
     }
@@ -242,7 +246,7 @@ export class ZipArchiveWriter implements ZipWriter {
     const actualBuffer = new ArrayBuffer(resultSize);
     const actualView = new Uint8Array(actualBuffer);
     const originalView = new Uint8Array(buffer, 0, resultSize);
-    
+
     actualView.set(originalView);
     this.handleId = -1;
 
@@ -281,7 +285,11 @@ export class ZipArchiveReader implements ZipReader {
         dataPtr = ptr(buffer);
       } else if (filenameOrData instanceof DataView) {
         dataLength = filenameOrData.byteLength;
-        const buffer = new Uint8Array(filenameOrData.buffer, filenameOrData.byteOffset, filenameOrData.byteLength);
+        const buffer = new Uint8Array(
+          filenameOrData.buffer,
+          filenameOrData.byteOffset,
+          filenameOrData.byteLength,
+        );
         dataPtr = ptr(buffer);
       } else {
         throw new Error("Unsupported data type for memory-based zip archive");
@@ -425,7 +433,6 @@ export function openArchive(filename: string): ZipArchiveReader {
 export function openMemoryArchive(data: FileData): ZipArchiveReader {
   return new ZipArchiveReader(data);
 }
-
 
 // Utility function to create a zip from a directory
 export async function zipDirectory(

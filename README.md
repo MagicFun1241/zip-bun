@@ -13,6 +13,7 @@ A high-performance ZIP archive library for Bun, built with native C bindings usi
 - **High Performance**: Native C bindings for maximum speed
 - **Full ZIP Support**: Create, read, and extract ZIP archives
 - **Memory-Based Operations**: Create and manipulate ZIP archives entirely in memory
+- **Memory-Based Reading**: Read ZIP archives directly from memory data
 - **Compression Control**: Multiple compression levels (no compression to best compression)
 - **TypeScript Support**: Full TypeScript definitions and type safety
 - **Comprehensive Testing**: Full test suite with coverage
@@ -64,6 +65,26 @@ const zipData = writer.finalizeToMemory();
 
 // Use the data (e.g., save to file, send over network, etc.)
 await Bun.write("archive.zip", zipData);
+```
+
+### Reading a ZIP Archive from Memory
+
+```typescript
+import { openMemoryArchive } from "zip-bun";
+
+// Read a ZIP archive from memory data
+const zipData = await Bun.file("archive.zip").arrayBuffer();
+const reader = openMemoryArchive(new Uint8Array(zipData));
+
+// Use the reader just like a file-based reader
+console.log(`Archive contains ${reader.getFileCount()} files`);
+
+// Extract files
+const data = reader.extractFile(0);
+const text = new TextDecoder().decode(data);
+console.log(text);
+
+reader.close();
 ```
 
 ### Reading a ZIP Archive
@@ -143,11 +164,15 @@ finalizeToMemory(): Uint8Array
 
 #### ZipArchiveReader
 
-A class for reading and extracting from ZIP archives.
+A class for reading and extracting from ZIP archives, supporting both file-based and memory-based archives.
 
 **Constructor:**
 ```typescript
+// File-based ZIP
 openArchive(filename: string): ZipArchiveReader
+
+// Memory-based ZIP
+openMemoryArchive(data: Uint8Array | ArrayBuffer | DataView): ZipArchiveReader
 ```
 
 **Methods:**
@@ -223,6 +248,9 @@ zipDirectoryToMemory(
   sourceDir: string, 
   compressionLevel?: CompressionLevel
 ): Promise<Uint8Array>
+
+// Open a ZIP archive from memory data
+openMemoryArchive(data: Uint8Array | ArrayBuffer | DataView): ZipArchiveReader
 ```
 
 ## Examples
@@ -331,6 +359,48 @@ const zipData = await zipDirectoryToMemory("my-project", CompressionLevel.BEST_C
 await Bun.write("project.zip", zipData);
 ```
 
+#### Reading a ZIP Archive from Memory
+
+```typescript
+import { openMemoryArchive } from "zip-bun";
+
+// Read a ZIP archive from memory data
+const zipData = await Bun.file("archive.zip").arrayBuffer();
+const reader = openMemoryArchive(new Uint8Array(zipData));
+
+// Use the reader just like a file-based reader
+console.log(`Archive contains ${reader.getFileCount()} files`);
+
+// Extract files
+const data = reader.extractFile(0);
+const text = new TextDecoder().decode(data);
+console.log(text);
+
+reader.close();
+```
+
+#### Round-trip Memory Operations
+
+```typescript
+import { createMemoryArchive, openMemoryArchive } from "zip-bun";
+
+// Create a memory-based ZIP
+const writer = createMemoryArchive();
+const textData = new TextEncoder().encode("Hello, World!");
+writer.addFile("hello.txt", textData, CompressionLevel.DEFAULT);
+
+// Get the ZIP data
+const zipData = writer.finalizeToMemory();
+
+// Read the same ZIP data back from memory
+const reader = openMemoryArchive(zipData);
+const extractedData = reader.extractFile(0);
+const extractedText = new TextDecoder().decode(extractedData);
+
+console.log(extractedText); // "Hello, World!"
+reader.close();
+```
+
 #### Working with Different Data Types
 
 ```typescript
@@ -354,6 +424,31 @@ dataView.setFloat32(0, 3.14, true);
 writer.addFile("float.bin", dataView);
 
 const zipData = writer.finalizeToMemory();
+```
+
+#### Memory-Based ZIP with Different Data Types
+
+```typescript
+import { openMemoryArchive } from "zip-bun";
+
+// Read ZIP from different data types
+const zipData = await Bun.file("archive.zip").arrayBuffer();
+
+// Using Uint8Array
+const reader1 = openMemoryArchive(new Uint8Array(zipData));
+
+// Using ArrayBuffer directly
+const reader2 = openMemoryArchive(zipData);
+
+// Using DataView
+const dataView = new DataView(zipData);
+const reader3 = openMemoryArchive(dataView);
+
+// All readers work the same way
+console.log(`Files: ${reader1.getFileCount()}`);
+reader1.close();
+reader2.close();
+reader3.close();
 ```
 
 ### Advanced Usage
@@ -458,10 +553,12 @@ This library provides excellent performance through:
 | Create ZIP | 1MB | ~50ms |
 | Create Memory ZIP | 1MB | ~45ms |
 | Extract ZIP | 1MB | ~30ms |
+| Extract Memory ZIP | 1MB | ~25ms |
 | Compress (BEST) | 1MB | ~100ms |
 | Compress (SPEED) | 1MB | ~20ms |
 | Directory to ZIP | 10MB | ~200ms |
 | Directory to Memory ZIP | 10MB | ~180ms |
+| Round-trip Memory | 1MB | ~70ms |
 
 ## Development
 
