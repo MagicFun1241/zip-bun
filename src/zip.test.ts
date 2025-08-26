@@ -10,6 +10,17 @@ import {
 
 const testDirectory = "test_directory";
 
+function generateTextData(size: number): Uint8Array {
+  // Use a simpler pattern for testing
+  const data = new Uint8Array(size);
+  for (let i = 0; i < size; i++) {
+    data[i] = i % 256; // Simple pattern: 0, 1, 2, ..., 255, 0, 1, ...
+  }
+  return data;
+}
+
+const five_mb = generateTextData(5 * 1024 * 1024);
+
 // Test data
 const testTextData = "Hello, World! This is a test file for compression.";
 const testJsonData =
@@ -141,6 +152,91 @@ describe("Memory-based ZipArchiveWriter", () => {
     const result = writer.finalizeToMemory();
     expect(result).toBeInstanceOf(Uint8Array);
     expect(result.length).toBeGreaterThan(0);
+  });
+
+  test("should finalize memory archive with small text file", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    const result = writer.finalizeToMemory();
+
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBeGreaterThan(0);
+
+    // Verify it's a valid ZIP by checking the signature
+    expect(result[0]).toBe(0x50); // P
+    expect(result[1]).toBe(0x4b); // K
+    expect(result[2]).toBe(0x03); // \003
+    expect(result[3]).toBe(0x04); // \004
+  });
+
+  test("should finalize memory archive with 5MB file", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+
+    writer.addFile("large_file.txt", five_mb, CompressionLevel.DEFAULT);
+    const result = writer.finalizeToMemory();
+
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBeGreaterThan(0);
+
+    // Verify it's a valid ZIP by checking the signature
+    expect(result[0]).toBe(0x50); // P
+    expect(result[1]).toBe(0x4b); // K
+    expect(result[2]).toBe(0x03); // \003
+    expect(result[3]).toBe(0x04); // \004
+
+    // Verify the ZIP has a reasonable size (could be smaller due to compression)
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.length).toBeLessThan(five_mb.length * 1.1); // Should not be much larger than original
+  });
+
+  test("should finalize memory archive with small text file and compression", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.BEST_COMPRESSION);
+    const result = writer.finalizeToMemory();
+
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBeGreaterThan(0);
+
+    // Verify it's a valid ZIP by checking the signature
+    expect(result[0]).toBe(0x50); // P
+    expect(result[1]).toBe(0x4b); // K
+    expect(result[2]).toBe(0x03); // \003
+    expect(result[3]).toBe(0x04); // \004
+  });
+
+  test("should compress 5MB file effectively", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+
+    // Create uncompressed version
+    const writer1 = createMemoryArchive();
+    writer1.addFile("large.txt", five_mb, CompressionLevel.NO_COMPRESSION);
+    const uncompressedResult = writer1.finalizeToMemory();
+
+    // Create compressed version
+    const writer2 = createMemoryArchive();
+    writer2.addFile("large.txt", five_mb, CompressionLevel.BEST_COMPRESSION);
+    const compressedResult = writer2.finalizeToMemory();
+
+    // Verify both are valid ZIPs
+    expect(uncompressedResult[0]).toBe(0x50); // P
+    expect(uncompressedResult[1]).toBe(0x4b); // K
+    expect(compressedResult[0]).toBe(0x50); // P
+    expect(compressedResult[1]).toBe(0x4b); // K
+
+    // Verify compression is effective (compressed should be smaller)
+    expect(compressedResult.length).toBeLessThan(uncompressedResult.length);
+
+    // Verify compression ratio is reasonable (should compress by at least 10%)
+    const compressionRatio =
+      compressedResult.length / uncompressedResult.length;
+    expect(compressionRatio).toBeLessThan(0.9); // At least 10% compression
   });
 
   test("should throw error when finalizing memory archive with finalize()", async () => {
@@ -848,5 +944,121 @@ describe("Memory-based ZipArchiveReader", () => {
 
     // Clean up
     await Bun.file("test_real.zip").delete();
+  });
+
+  test("should read memory archive with small text file", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import(
+      "./index.ts"
+    );
+
+    // Create a memory archive with small text file
+    const writer = createMemoryArchive();
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("small.txt", textData, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Read the memory archive
+    const reader = openMemoryArchive(zipData);
+    expect(reader.getFileCount()).toBe(1);
+
+    const fileInfo = reader.getFileInfo(0);
+    expect(fileInfo.filename).toBe("small.txt");
+    expect(fileInfo.uncompressedSize).toBe(testTextData.length);
+
+    const extractedData = reader.extractFile(0);
+    const extractedText = new TextDecoder().decode(extractedData);
+    expect(extractedText).toBe(testTextData);
+
+    reader.close();
+  });
+
+  test("should read memory archive with 5MB file", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import(
+      "./index.ts"
+    );
+
+    // Create a memory archive with 5MB file
+    const writer = createMemoryArchive();
+    writer.addFile("large.txt", five_mb, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Read the memory archive
+    const reader = openMemoryArchive(zipData);
+    expect(reader.getFileCount()).toBe(1);
+
+    const fileInfo = reader.getFileInfo(0);
+    expect(fileInfo.filename).toBe("large.txt");
+    expect(fileInfo.uncompressedSize).toBe(five_mb.length);
+
+    const extractedData = reader.extractFile(0);
+    expect(extractedData.length).toBe(five_mb.length);
+
+    // Verify the data matches (check first and last few bytes for performance)
+    const [first, second] = five_mb;
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[0]).toBe(first!);
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[1]).toBe(second!);
+
+    const [secondLast, last] = five_mb.slice(-2);
+    expect(last).toBeDefined();
+    expect(secondLast).toBeDefined();
+
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[extractedData.length - 1]).toBe(last!);
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[extractedData.length - 2]).toBe(secondLast!);
+
+    reader.close();
+  });
+
+  test("should read memory archive with compressed 5MB file", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import(
+      "./index.ts"
+    );
+
+    // Create a memory archive with compressed 5MB file
+    const writer = createMemoryArchive();
+    writer.addFile(
+      "large_compressed.txt",
+      five_mb,
+      CompressionLevel.BEST_COMPRESSION,
+    );
+    const zipData = writer.finalizeToMemory();
+
+    // Read the memory archive
+    const reader = openMemoryArchive(zipData);
+    expect(reader.getFileCount()).toBe(1);
+
+    const fileInfo = reader.getFileInfo(0);
+    expect(fileInfo.filename).toBe("large_compressed.txt");
+    expect(fileInfo.uncompressedSize).toBe(five_mb.length);
+    expect(fileInfo.compressedSize).toBeLessThan(five_mb.length); // Should be compressed
+
+    const extractedData = reader.extractFile(0);
+    expect(extractedData.length).toBe(five_mb.length);
+
+    const [first, second] = five_mb;
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+
+    // Verify the data matches (check first and last few bytes for performance)
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[0]).toBe(first!);
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[1]).toBe(second!);
+
+    const [secondLast, last] = five_mb.slice(-2);
+    expect(last).toBeDefined();
+    expect(secondLast).toBeDefined();
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[extractedData.length - 1]).toBe(last!);
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
+    expect(extractedData[extractedData.length - 2]).toBe(secondLast!);
+
+    reader.close();
   });
 });

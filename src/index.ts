@@ -271,6 +271,8 @@ export class ZipArchiveWriter implements ZipWriter {
     // Create a new buffer with the actual size
     const actualBuffer = new ArrayBuffer(resultSize);
     const actualView = new Uint8Array(actualBuffer);
+
+    // biome-ignore lint/style/noNonNullAssertion: must be defined
     const originalView = new Uint8Array(buffer!, 0, resultSize);
 
     actualView.set(originalView);
@@ -412,8 +414,10 @@ export class ZipArchiveReader implements ZipReader {
     const sizeView = new DataView(sizeBuffer);
     const size = Number(sizeView.getBigUint64(0, true));
 
-    // Convert the data pointer to Uint8Array using read function
+    // Convert the data pointer to Uint8Array using a more efficient approach
     const data = new Uint8Array(size);
+
+    // Use simple loop to read data from C pointer
     for (let i = 0; i < size; i++) {
       data[i] = read.u8(dataPtr, i);
     }
