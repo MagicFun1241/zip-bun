@@ -15,6 +15,7 @@ const {
     finalize_zip,
     create_zip_in_memory,
     finalize_zip_in_memory,
+    finalize_zip_in_memory_bytes,
     free_memory_zip_result,
     open_zip,
     open_zip_from_memory,
@@ -49,6 +50,10 @@ const {
     finalize_zip_in_memory: {
       args: ["i32"],
       returns: "ptr",
+    },
+    finalize_zip_in_memory_bytes: {
+      args: ["i32", "ptr", "u64"],
+      returns: "i32",
     },
     free_memory_zip_result: {
       args: ["ptr"],
@@ -231,34 +236,27 @@ export class ZipArchiveWriter implements ZipWriter {
       throw new Error("Use finalize() for file-based zip archives");
     }
 
-    const resultPtr = finalize_zip_in_memory(this.handleId);
-    if (!resultPtr) {
+    // Use the new bytes function approach
+    // First, we need to estimate the size. Let's try with a reasonable buffer size
+    const estimatedSize = 1024 * 1024; // 1MB should be enough for most cases
+    const buffer = new ArrayBuffer(estimatedSize);
+    const bufferPtr = ptr(buffer);
+
+    const resultSize = finalize_zip_in_memory_bytes(this.handleId, bufferPtr, estimatedSize);
+    
+    if (resultSize <= 0) {
       throw new Error("Failed to finalize memory-based zip archive");
     }
 
-    // Read the result structure (memory_zip_result_t has data pointer and size)
-    const dataPtrBigInt = read.u64(resultPtr, 0); // First 8 bytes: void* data
-    const size = Number(read.u64(resultPtr, 8)); // Next 8 bytes: size_t size
-
-    // Create a buffer from the memory address
-    const buffer = new ArrayBuffer(size);
-    const view = new Uint8Array(buffer);
-
-    // Copy the data from the C memory to our buffer
-    const dataPtrBuffer = new ArrayBuffer(8);
-    const dataPtrView = new DataView(dataPtrBuffer);
-    dataPtrView.setBigUint64(0, dataPtrBigInt, true);
-    const dataPtr = ptr(dataPtrBuffer);
-
-    for (let i = 0; i < size; i++) {
-      view[i] = read.u8(dataPtr, i);
-    }
-
-    // Free the result structure
-    free_memory_zip_result(resultPtr);
+    // Create a new buffer with the actual size
+    const actualBuffer = new ArrayBuffer(resultSize);
+    const actualView = new Uint8Array(actualBuffer);
+    const originalView = new Uint8Array(buffer, 0, resultSize);
+    
+    actualView.set(originalView);
     this.handleId = -1;
 
-    return new Uint8Array(buffer);
+    return new Uint8Array(actualBuffer);
   }
 }
 //#endregion
@@ -282,7 +280,7 @@ export class ZipArchiveReader implements ZipReader {
     } else {
       // Memory-based zip
       let dataLength = 0;
-      let dataPtr: any;
+      let dataPtr: ReturnType<typeof ptr>;
 
       if (filenameOrData instanceof Uint8Array) {
         dataLength = filenameOrData.length;

@@ -230,6 +230,40 @@ typedef struct {
     size_t size;
 } memory_zip_result_t;
 
+// Alternative approach: Return data directly as bytes
+int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buffer_size) {
+    if (handle_id < 0 || handle_id >= 100 || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
+        return -1;
+    }
+    
+    zip_handle_t* handle = zip_handles[handle_id];
+    
+    // Use mz_zip_writer_finalize_heap_archive but handle the data differently
+    void* data = NULL;
+    size_t size = 0;
+    
+    mz_bool status = mz_zip_writer_finalize_heap_archive(&handle->archive, &data, &size);
+    if (!status || !data || size == 0) {
+        return -1;
+    }
+    
+    // Check if buffer is large enough
+    if (buffer_size < size) {
+        return -2; // Buffer too small
+    }
+    
+    // Copy the data directly to the output buffer
+    memcpy(output_buffer, data, size);
+    
+    // End the writer
+    mz_zip_writer_end(&handle->archive);
+    
+    free(handle);
+    zip_handles[handle_id] = NULL;
+    
+    return (int)size;
+}
+
 memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
     if (handle_id < 0 || handle_id >= 100 || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
         return NULL;
@@ -237,7 +271,7 @@ memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
     
     zip_handle_t* handle = zip_handles[handle_id];
     
-    // Get the heap data and size using the proper miniz function
+    // Use mz_zip_writer_finalize_heap_archive but handle the data differently
     void* data = NULL;
     size_t size = 0;
     
@@ -246,7 +280,7 @@ memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
         return NULL;
     }
     
-    // Copy the data to our own buffer (since miniz will free the original)
+    // Copy the data to our own buffer
     void* copied_data = malloc(size);
     if (!copied_data) {
         return NULL;
@@ -262,7 +296,7 @@ memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
         free(copied_data);
     }
     
-    // End the writer (this will free the original data from miniz)
+    // End the writer
     mz_zip_writer_end(&handle->archive);
     
     free(handle);
