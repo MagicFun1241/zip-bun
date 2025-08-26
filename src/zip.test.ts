@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { 
-  createZipArchive, 
-  openZipArchive, 
+  createArchive, 
+  openArchive, 
   CompressionLevel,
   ZipArchiveWriter,
   ZipArchiveReader,
@@ -25,13 +25,13 @@ describe("ZipArchiveWriter", () => {
   });
 
   test("should create a new zip archive", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     expect(writer).toBeInstanceOf(ZipArchiveWriter);
     writer.finalize();
   });
 
   test("should add text file to zip archive", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const textData = new TextEncoder().encode(testTextData);
     
     const result = writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
@@ -41,7 +41,7 @@ describe("ZipArchiveWriter", () => {
   });
 
   test("should add JSON file to zip archive", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const jsonData = new TextEncoder().encode(testJsonData);
     
     const result = writer.addFile("data.json", jsonData, CompressionLevel.BEST_COMPRESSION);
@@ -51,7 +51,7 @@ describe("ZipArchiveWriter", () => {
   });
 
   test("should add binary file to zip archive", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     
     const result = writer.addFile("test.png", testBinaryData, CompressionLevel.BEST_SPEED);
     expect(result).toBe(true);
@@ -60,7 +60,7 @@ describe("ZipArchiveWriter", () => {
   });
 
   test("should add multiple files with different compression levels", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     
     const textData = new TextEncoder().encode(testTextData);
     const jsonData = new TextEncoder().encode(testJsonData);
@@ -73,7 +73,7 @@ describe("ZipArchiveWriter", () => {
   });
 
   test("should handle empty file", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const emptyData = new Uint8Array(0);
     
     const result = writer.addFile("empty.txt", emptyData);
@@ -84,7 +84,7 @@ describe("ZipArchiveWriter", () => {
 
   test("should throw error for invalid filename", () => {
     expect(() => {
-      createZipArchive("");
+      createArchive("");
     }).toThrow();
   });
 });
@@ -94,7 +94,7 @@ describe("ZipArchiveReader", () => {
 
   beforeAll(async () => {
     // Create a test zip file for reading tests
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const textData = new TextEncoder().encode(testTextData);
     const jsonData = new TextEncoder().encode(testJsonData);
     
@@ -113,33 +113,33 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should open existing zip archive", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     expect(reader).toBeInstanceOf(ZipArchiveReader);
     reader.close();
   });
 
   test("should get correct file count", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     const fileCount = reader.getFileCount();
     expect(fileCount).toBe(4);
     reader.close();
   });
 
   test("should get file info by index", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const fileInfo = reader.getFileInfo(0);
     expect(fileInfo).toHaveProperty("filename");
-    expect(fileInfo).toHaveProperty("uncompressed_size");
-    expect(fileInfo).toHaveProperty("compressed_size");
-    expect(fileInfo).toHaveProperty("is_directory");
-    expect(fileInfo).toHaveProperty("is_encrypted");
+    expect(fileInfo).toHaveProperty("uncompressedSize");
+    expect(fileInfo).toHaveProperty("compressedSize");
+    expect(fileInfo).toHaveProperty("directory");
+    expect(fileInfo).toHaveProperty("encrypted");
     
     reader.close();
   });
 
   test("should extract text file correctly", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const data = reader.extractFile(0);
     const text = new TextDecoder().decode(data);
@@ -150,7 +150,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should extract JSON file correctly", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const data = reader.extractFile(1);
     const text = new TextDecoder().decode(data);
@@ -161,7 +161,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should extract binary file correctly", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const data = reader.extractFile(2);
     
@@ -172,7 +172,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should extract empty file correctly", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const data = reader.extractFile(3);
     
@@ -182,7 +182,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should find file by name", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const index = reader.findFile("test.txt");
     expect(index).toBe(0);
@@ -194,7 +194,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should extract file by name", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     const data = reader.extractFileByName("test.txt");
     const text = new TextDecoder().decode(data);
@@ -205,7 +205,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should throw error when extracting non-existent file by name", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     expect(() => {
       reader.extractFileByName("nonexistent.txt");
@@ -215,7 +215,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should throw error when extracting invalid index", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     expect(() => {
       reader.extractFile(999);
@@ -225,7 +225,7 @@ describe("ZipArchiveReader", () => {
   });
 
   test("should throw error when getting info for invalid index", () => {
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     
     expect(() => {
       reader.getFileInfo(999);
@@ -245,7 +245,7 @@ describe("Compression Levels", () => {
   });
 
   test("should compress with NO_COMPRESSION", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const data = new TextEncoder().encode(testTextData);
     
     const result = writer.addFile("test.txt", data, CompressionLevel.NO_COMPRESSION);
@@ -258,7 +258,7 @@ describe("Compression Levels", () => {
   });
 
   test("should compress with BEST_SPEED", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const data = new TextEncoder().encode(testTextData);
     
     const result = writer.addFile("test.txt", data, CompressionLevel.BEST_SPEED);
@@ -268,7 +268,7 @@ describe("Compression Levels", () => {
   });
 
   test("should compress with BEST_COMPRESSION", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const data = new TextEncoder().encode(testTextData);
     
     const result = writer.addFile("test.txt", data, CompressionLevel.BEST_COMPRESSION);
@@ -278,7 +278,7 @@ describe("Compression Levels", () => {
   });
 
   test("should compress with DEFAULT level", () => {
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     const data = new TextEncoder().encode(testTextData);
     
     const result = writer.addFile("test.txt", data, CompressionLevel.DEFAULT);
@@ -301,12 +301,12 @@ describe("Round-trip compression and decompression", () => {
     const originalData = new TextEncoder().encode(testTextData);
     
     // Compress
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     writer.addFile("test.txt", originalData, CompressionLevel.DEFAULT);
     writer.finalize();
     
     // Decompress
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     const extractedData = reader.extractFile(0);
     reader.close();
     
@@ -320,12 +320,12 @@ describe("Round-trip compression and decompression", () => {
 
   test("should compress and decompress binary data correctly", () => {
     // Compress
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     writer.addFile("test.png", testBinaryData, CompressionLevel.BEST_COMPRESSION);
     writer.finalize();
     
     // Decompress
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     const extractedData = reader.extractFile(0);
     reader.close();
     
@@ -342,12 +342,12 @@ describe("Round-trip compression and decompression", () => {
     }
     
     // Compress
-    const writer = createZipArchive(testZipFile);
+    const writer = createArchive(testZipFile);
     writer.addFile("large.bin", largeData, CompressionLevel.DEFAULT);
     writer.finalize();
     
     // Decompress
-    const reader = openZipArchive(testZipFile);
+    const reader = openArchive(testZipFile);
     const extractedData = reader.extractFile(0);
     reader.close();
     
@@ -360,12 +360,12 @@ describe("Round-trip compression and decompression", () => {
 describe("Error handling", () => {
   test("should throw error when opening non-existent file", () => {
     expect(() => {
-      openZipArchive("nonexistent.zip");
+      openArchive("nonexistent.zip");
     }).toThrow();
   });
 
   test("should throw error when finalizing already finalized writer", () => {
-    const writer = createZipArchive("test.zip");
+    const writer = createArchive("test.zip");
     writer.finalize();
     
     expect(() => {
@@ -374,7 +374,7 @@ describe("Error handling", () => {
   });
 
   test("should throw error when adding file to finalized writer", () => {
-    const writer = createZipArchive("test.zip");
+    const writer = createArchive("test.zip");
     writer.finalize();
     
     const data = new TextEncoder().encode("test");
@@ -386,11 +386,11 @@ describe("Error handling", () => {
   test("should throw error when closing already closed reader", () => {
     // Create a temporary zip file for this test
     const tempZipFile = "temp_test.zip";
-    const writer = createZipArchive(tempZipFile);
+    const writer = createArchive(tempZipFile);
     writer.addFile("test.txt", new TextEncoder().encode("test"), CompressionLevel.DEFAULT);
     writer.finalize();
     
-    const reader = openZipArchive(tempZipFile);
+    const reader = openArchive(tempZipFile);
     reader.close();
     
     expect(() => {

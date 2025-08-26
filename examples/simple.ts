@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 import { 
-  createZipArchive, 
-  openZipArchive, 
+  createArchive, 
+  openArchive, 
   CompressionLevel 
 } from "zip-bun";
 
@@ -10,7 +10,7 @@ console.log("Bun Zip Library Example\n");
 
 // Example 1: Creating a ZIP archive
 console.log("Creating a ZIP archive...");
-const writer = createZipArchive("example.zip");
+const writer = createArchive("example.zip");
 
 // Add different types of files with different compression levels
 const textData = new TextEncoder().encode("Hello, World! This is a text file.");
@@ -27,7 +27,7 @@ console.log("ZIP archive created successfully!\n");
 
 // Example 2: Reading and extracting from a ZIP archive
 console.log("Reading the ZIP archive...");
-const reader = openZipArchive("example.zip");
+const reader = openArchive("example.zip");
 
 console.log(`Archive contains ${reader.getFileCount()} files:\n`);
 
@@ -35,9 +35,9 @@ console.log(`Archive contains ${reader.getFileCount()} files:\n`);
 for (let i = 0; i < reader.getFileCount(); i++) {
   const fileInfo = reader.getFileInfo(i);
   console.log(`${fileInfo.filename}`);
-  console.log(`   Size: ${fileInfo.uncompressed_size} bytes (compressed: ${fileInfo.compressed_size} bytes)`);
-  console.log(`   Directory: ${fileInfo.is_directory ? "Yes" : "No"}`);
-  console.log(`   Encrypted: ${fileInfo.is_encrypted ? "Yes" : "No"}`);
+  console.log(`   Size: ${fileInfo.uncompressedSize} bytes (compressed: ${fileInfo.compressedSize} bytes)`);
+  console.log(`   Directory: ${fileInfo.directory ? "Yes" : "No"}`);
+  console.log(`   Encrypted: ${fileInfo.encrypted ? "Yes" : "No"}`);
   console.log("");
 }
 

@@ -24,10 +24,10 @@ bun add zip-bun
 ### Creating a ZIP Archive
 
 ```typescript
-import { createZipArchive, CompressionLevel } from "zip-bun";
+import { createArchive, CompressionLevel } from "zip-bun";
 
 // Create a new ZIP archive
-const writer = createZipArchive("archive.zip");
+const writer = createArchive("archive.zip");
 
 // Add files with different compression levels
 const textData = new TextEncoder().encode("Hello, World!");
@@ -43,10 +43,10 @@ writer.finalize();
 ### Reading a ZIP Archive
 
 ```typescript
-import { openZipArchive } from "zip-bun";
+import { openArchive } from "zip-bun";
 
 // Open an existing ZIP archive
-const reader = openZipArchive("archive.zip");
+const reader = openArchive("archive.zip");
 
 // Get information about files
 console.log(`Archive contains ${reader.getFileCount()} files`);
@@ -54,7 +54,7 @@ console.log(`Archive contains ${reader.getFileCount()} files`);
 // List all files
 for (let i = 0; i < reader.getFileCount(); i++) {
   const fileInfo = reader.getFileInfo(i);
-  console.log(`${fileInfo.filename}: ${fileInfo.uncompressed_size} bytes`);
+  console.log(`${fileInfo.filename}: ${fileInfo.uncompressedSize} bytes`);
 }
 
 // Extract a specific file
@@ -118,10 +118,10 @@ close(): boolean
 interface ZipFileInfo {
   filename: string;
   comment: string;
-  uncompressed_size: number;
-  compressed_size: number;
-  is_directory: boolean;
-  is_encrypted: boolean;
+  uncompressedSize: number;
+  compressedSize: number;
+  directory: boolean;
+  encrypted: boolean;
 }
 ```
 
@@ -130,9 +130,9 @@ interface ZipFileInfo {
 ### Creating a ZIP with Multiple Files
 
 ```typescript
-import { createZipArchive, CompressionLevel } from "zip-bun";
+import { createArchive, CompressionLevel } from "zip-bun";
 
-const writer = createZipArchive("backup.zip");
+const writer = createArchive("backup.zip");
 
 // Add text files
 const readmeData = new TextEncoder().encode("# My Project\n\nThis is a README file.");
@@ -152,14 +152,14 @@ writer.finalize();
 ### Extracting All Files from a ZIP
 
 ```typescript
-import { openZipArchive } from "zip-bun";
+import { openArchive } from "zip-bun";
 
-const reader = openZipArchive("backup.zip");
+const reader = openArchive("backup.zip");
 
 for (let i = 0; i < reader.getFileCount(); i++) {
   const fileInfo = reader.getFileInfo(i);
   
-  if (!fileInfo.is_directory) {
+  if (!fileInfo.directory) {
     const data = reader.extractFile(i);
     
     // Save to file system
@@ -174,9 +174,9 @@ reader.close();
 ### Finding and Extracting Specific Files
 
 ```typescript
-import { openZipArchive } from "zip-bun";
+import { openArchive } from "zip-bun";
 
-const reader = openZipArchive("archive.zip");
+const reader = openArchive("archive.zip");
 
 // Find a specific file
 const index = reader.findFile("config.json");

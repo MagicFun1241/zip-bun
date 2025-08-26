@@ -75,10 +75,12 @@ const {
 export interface ZipFileInfo {
   filename: string;
   comment: string;
-  uncompressed_size: number;
-  compressed_size: number;
-  is_directory: boolean;
-  is_encrypted: boolean;
+
+  uncompressedSize: number;
+  compressedSize: number;
+
+  directory: boolean;
+  encrypted: boolean;
 }
 
 export interface ZipWriter {
@@ -178,20 +180,20 @@ export class ZipArchiveReader implements ZipReader {
     const comment = decoder.decode(commentBytes).replace(/\0/g, '');
     
     // Read sizes (assuming size_t is 8 bytes on 64-bit systems)
-    const uncompressed_size = Number(view.getBigUint64(512, true));
-    const compressed_size = Number(view.getBigUint64(520, true));
+    const uncompressedSize = Number(view.getBigUint64(512, true));
+    const compressedSize = Number(view.getBigUint64(520, true));
     
     // Read flags
-    const is_directory = Boolean(view.getInt32(528, true));
-    const is_encrypted = Boolean(view.getInt32(532, true));
+    const directory = Boolean(view.getInt32(528, true));
+    const encrypted = Boolean(view.getInt32(532, true));
     
     return {
       filename,
       comment,
-      uncompressed_size,
-      compressed_size,
-      is_directory,
-      is_encrypted,
+      uncompressedSize,
+      compressedSize,
+      directory,
+      encrypted,
     };
   }
 
@@ -264,17 +266,17 @@ export class ZipArchiveReader implements ZipReader {
 }
 
 // Convenience functions
-export function createZipArchive(filename: string): ZipArchiveWriter {
+export function createArchive(filename: string): ZipArchiveWriter {
   return new ZipArchiveWriter(filename);
 }
 
-export function openZipArchive(filename: string): ZipArchiveReader {
+export function openArchive(filename: string): ZipArchiveReader {
   return new ZipArchiveReader(filename);
 }
 
 // Utility function to create a zip from a directory
 export async function zipDirectory(sourceDir: string, outputFile: string, compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT): Promise<void> {
-  const writer = createZipArchive(outputFile);
+  const writer = createArchive(outputFile);
   
   try {
     const entries = await Bun.file(sourceDir).arrayBuffer();
@@ -287,8 +289,8 @@ export async function zipDirectory(sourceDir: string, outputFile: string, compre
 }
 
 // Utility function to extract all files from a zip
-export async function extractZipArchive(zipFile: string, outputDir: string): Promise<void> {
-  const reader = openZipArchive(zipFile);
+export async function extractArchive(zipFile: string, outputDir: string): Promise<void> {
+  const reader = openArchive(zipFile);
   
   try {
     const fileCount = reader.getFileCount();
@@ -296,7 +298,7 @@ export async function extractZipArchive(zipFile: string, outputDir: string): Pro
     for (let i = 0; i < fileCount; i++) {
       const fileInfo = reader.getFileInfo(i);
       
-      if (!fileInfo.is_directory) {
+      if (!fileInfo.directory) {
         const data = reader.extractFile(i);
         const outputPath = `${outputDir}/${fileInfo.filename}`;
         
