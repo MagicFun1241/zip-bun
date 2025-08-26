@@ -1,5 +1,12 @@
 import { $, build } from "bun";
 
+const files = ["zip_wrapper.c", "miniz.c", "miniz.h"];
+
+for (const file of files) {
+  await $`cp src/${file} .`;
+  console.log(`Copied ${file} to root`);
+}
+
 // bun build src/index.ts --outdir dist --target node --format esm --sourcemap=linked
 await build({
   entrypoints: ["src/index.ts"],
@@ -11,7 +18,6 @@ await build({
 
 console.log("Build complete");
 
-const files = ["zip_wrapper.c", "miniz.c", "miniz.h"];
 
 for (const file of files) {
   await $`cp src/${file} dist`;
