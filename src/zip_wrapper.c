@@ -203,3 +203,82 @@ void free_extracted_data(void* data) {
     }
 }
 
+// Create a new zip archive in memory
+int create_zip_in_memory() {
+    if (next_handle_id >= 100) return -1;
+    
+    zip_handle_t* handle = (zip_handle_t*)malloc(sizeof(zip_handle_t));
+    if (!handle) return -1;
+    
+    memset(handle, 0, sizeof(zip_handle_t));
+    handle->is_writer = 1;
+    
+    mz_bool status = mz_zip_writer_init_heap(&handle->archive, 0, 0);
+    
+    if (!status) {
+        free(handle);
+        return -1;
+    }
+    
+    zip_handles[next_handle_id] = handle;
+    return next_handle_id++;
+}
+
+// Get the memory buffer and size from a memory-based zip
+typedef struct {
+    void* data;
+    size_t size;
+} memory_zip_result_t;
+
+memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
+    if (handle_id < 0 || handle_id >= 100 || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
+        return NULL;
+    }
+    
+    zip_handle_t* handle = zip_handles[handle_id];
+    
+    // Finalize the archive
+    mz_bool status = mz_zip_writer_finalize_archive(&handle->archive);
+    if (!status) {
+        return NULL;
+    }
+    
+    // Get the memory buffer before calling mz_zip_writer_end
+    void* data = handle->archive.m_pWrite;
+    size_t size = handle->archive.m_archive_size;
+    
+    // Copy the data to our own buffer
+    void* copied_data = NULL;
+    if (data && size > 0) {
+        copied_data = malloc(size);
+        if (copied_data) {
+            memcpy(copied_data, data, size);
+        }
+    }
+    
+    // Now end the writer (this will free the original data)
+    mz_zip_writer_end(&handle->archive);
+    
+    // Create result structure
+    memory_zip_result_t* result = (memory_zip_result_t*)malloc(sizeof(memory_zip_result_t));
+    if (result) {
+        result->data = copied_data;
+        result->size = size;
+    }
+    
+    free(handle);
+    zip_handles[handle_id] = NULL;
+    
+    return result;
+}
+
+// Free memory zip result
+void free_memory_zip_result(memory_zip_result_t* result) {
+    if (result) {
+        if (result->data) {
+            free(result->data);
+        }
+        free(result);
+    }
+}
+

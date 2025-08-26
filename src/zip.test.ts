@@ -104,10 +104,88 @@ describe("ZipArchiveWriter", () => {
     writer.finalize();
   });
 
-  test("should throw error for invalid filename", () => {
+  test("should create memory archive with empty filename", () => {
+    const writer = createArchive("");
+    expect(writer).toBeInstanceOf(ZipArchiveWriter);
+    writer.finalizeToMemory();
+  });
+});
+
+describe("Memory-based ZipArchiveWriter", () => {
+  test("should create memory archive", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+    expect(writer).toBeInstanceOf(ZipArchiveWriter);
+  });
+
+  test("should add files to memory archive", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+
+    const textData = new TextEncoder().encode(testTextData);
+    const result = writer.addFile(
+      "test.txt",
+      textData,
+      CompressionLevel.DEFAULT,
+    );
+    expect(result).toBe(true);
+  });
+
+  test("should finalize memory archive to Uint8Array", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+
+    const result = writer.finalizeToMemory();
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  test("should throw error when finalizing memory archive with finalize()", async () => {
+    const { createMemoryArchive } = await import("./index.ts");
+    const writer = createMemoryArchive();
+
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+
     expect(() => {
-      createArchive("");
-    }).toThrow();
+      writer.finalize();
+    }).toThrow("Use finalizeToMemory() for memory-based zip archives");
+  });
+
+  test("should throw error when finalizing file archive with finalizeToMemory()", () => {
+    const writer = createArchive("test.zip");
+
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+
+    expect(() => {
+      writer.finalizeToMemory();
+    }).toThrow("Use finalize() for file-based zip archives");
+  });
+
+  test("should create memory archive from directory", async () => {
+    const { zipDirectoryToMemory } = await import("./index.ts");
+
+    const result = await zipDirectoryToMemory(
+      testDirectory,
+      CompressionLevel.DEFAULT,
+    );
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  test("should create memory archive from directory with different compression levels", async () => {
+    const { zipDirectoryToMemory } = await import("./index.ts");
+
+    const result = await zipDirectoryToMemory(
+      testDirectory,
+      CompressionLevel.BEST_COMPRESSION,
+    );
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBeGreaterThan(0);
   });
 });
 
