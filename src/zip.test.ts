@@ -498,6 +498,20 @@ describe("Compression Levels", () => {
 
     writer.finalize();
   });
+
+  test("should disable compression when no compression level is passed", async () => {
+    const writer = createArchive(testZipFile);
+    const data = new TextEncoder().encode(testTextData);
+
+    // Add file without specifying compression level
+    const result = writer.addFile("test.txt", data);
+    expect(result).toBe(true);
+
+    writer.finalize();
+
+    // Verify the file was created
+    expect(await Bun.file(testZipFile).exists()).toBe(true);
+  });
 });
 
 describe("Round-trip compression and decompression", () => {

@@ -116,7 +116,11 @@ export interface ZipFileInfo {
 //#region ZipWriter
 
 export interface ZipWriter {
-  addFile(filename: string, data: FileData, compressionLevel?: number): boolean;
+  addFile(
+    filename: string,
+    data: FileData,
+    compressionLevel?: CompressionLevelType,
+  ): boolean;
   finalize(): boolean;
 }
 
@@ -185,7 +189,7 @@ export class ZipArchiveWriter implements ZipWriter {
   addFile(
     filename: string,
     data: FileData,
-    compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT,
+    compressionLevel?: CompressionLevelType,
   ): boolean {
     if (this.handleId === -1) {
       throw new Error("ZipArchiveWriter has already been finalized");
@@ -202,13 +206,17 @@ export class ZipArchiveWriter implements ZipWriter {
       dataLength = data.byteLength;
     }
 
+    // Use NO_COMPRESSION if no compression level is specified
+    const actualCompressionLevel =
+      compressionLevel ?? CompressionLevel.NO_COMPRESSION;
+
     return Boolean(
       add_file_to_zip(
         this.handleId,
         filenamePtr,
         dataPtr,
         dataLength,
-        compressionLevel,
+        actualCompressionLevel,
       ),
     );
   }
@@ -468,7 +476,7 @@ export function openMemoryArchive(data: FileData): ZipArchiveReader {
 export async function zipDirectory(
   sourceDir: string,
   outputFile: string,
-  compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT,
+  compressionLevel?: CompressionLevelType,
 ): Promise<void> {
   const writer = createArchive(outputFile);
 
@@ -532,7 +540,7 @@ export async function extractArchive(
 // Utility function to create a zip from a directory in memory
 export async function zipDirectoryToMemory(
   sourceDir: string,
-  compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT,
+  compressionLevel?: CompressionLevelType,
 ): Promise<Uint8Array> {
   const writer = createMemoryArchive();
 
