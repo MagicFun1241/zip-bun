@@ -237,48 +237,33 @@ memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
     
     zip_handle_t* handle = zip_handles[handle_id];
     
-    // Finalize the archive
-    mz_bool status = mz_zip_writer_finalize_archive(&handle->archive);
-    if (!status) {
-        return NULL;
-    }
-    
-    // Get the heap data and size
+    // Get the heap data and size using the proper miniz function
     void* data = NULL;
     size_t size = 0;
     
-    // Get the heap data from the archive structure
-    // Try different fields that might contain the actual ZIP data
-    data = handle->archive.m_pWrite;
-    size = handle->archive.m_archive_size;
-    
-    // If the above doesn't work, try alternative fields
-    if (!data || size == 0) {
-        data = handle->archive.m_pState;
-        size = handle->archive.m_archive_size;
+    mz_bool status = mz_zip_writer_finalize_heap_archive(&handle->archive, &data, &size);
+    if (!status || !data || size == 0) {
+        return NULL;
     }
     
-    if (data && size > 0) {
-        // Copy the data to our own buffer
-        void* copied_data = malloc(size);
-        if (copied_data) {
-            memcpy(copied_data, data, size);
-            data = copied_data;
-        } else {
-            data = NULL;
-            size = 0;
-        }
+    // Copy the data to our own buffer (since miniz will free the original)
+    void* copied_data = malloc(size);
+    if (!copied_data) {
+        return NULL;
     }
-    
-    // End the writer (this will free the original data)
-    mz_zip_writer_end(&handle->archive);
+    memcpy(copied_data, data, size);
     
     // Create result structure
     memory_zip_result_t* result = (memory_zip_result_t*)malloc(sizeof(memory_zip_result_t));
     if (result) {
-        result->data = data;
+        result->data = copied_data;
         result->size = size;
+    } else {
+        free(copied_data);
     }
+    
+    // End the writer (this will free the original data from miniz)
+    mz_zip_writer_end(&handle->archive);
     
     free(handle);
     zip_handles[handle_id] = NULL;
