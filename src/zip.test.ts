@@ -637,3 +637,204 @@ describe("Convenience functions", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("Memory-based ZipArchiveReader", () => {
+  test("should open memory archive", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create a memory archive first
+    const writer = createMemoryArchive();
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Open the memory archive
+    const reader = openMemoryArchive(zipData);
+    expect(reader).toBeInstanceOf(ZipArchiveReader);
+    expect(reader.getFileCount()).toBe(1);
+    reader.close();
+  });
+
+  test("should extract files from memory archive", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create a memory archive with multiple files
+    const writer = createMemoryArchive();
+    const textData = new TextEncoder().encode(testTextData);
+    const jsonData = new TextEncoder().encode(testJsonData);
+    
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    writer.addFile("data.json", jsonData, CompressionLevel.BEST_COMPRESSION);
+    const zipData = writer.finalizeToMemory();
+
+    // Open and extract from memory archive
+    const reader = openMemoryArchive(zipData);
+    expect(reader.getFileCount()).toBe(2);
+
+    // Extract text file
+    const extractedText = reader.extractFile(0);
+    const text = new TextDecoder().decode(extractedText);
+    expect(text).toBe(testTextData);
+
+    // Extract JSON file
+    const extractedJson = reader.extractFile(1);
+    const json = new TextDecoder().decode(extractedJson);
+    expect(json).toBe(testJsonData);
+
+    reader.close();
+  });
+
+  test("should find and extract files by name from memory archive", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create a memory archive
+    const writer = createMemoryArchive();
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Open memory archive and find file
+    const reader = openMemoryArchive(zipData);
+    
+    const index = reader.findFile("test.txt");
+    expect(index).toBe(0);
+
+    const notFoundIndex = reader.findFile("nonexistent.txt");
+    expect(notFoundIndex).toBe(-1);
+
+    // Extract by name
+    const data = reader.extractFileByName("test.txt");
+    const text = new TextDecoder().decode(data);
+    expect(text).toBe(testTextData);
+
+    reader.close();
+  });
+
+  test("should get file info from memory archive", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create a memory archive
+    const writer = createMemoryArchive();
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Open memory archive and get file info
+    const reader = openMemoryArchive(zipData);
+    
+    const fileInfo = reader.getFileInfo(0);
+    expect(fileInfo.filename).toBe("test.txt");
+    expect(fileInfo.uncompressedSize).toBe(testTextData.length);
+    expect(fileInfo.directory).toBe(false);
+    expect(fileInfo.encrypted).toBe(false);
+
+    reader.close();
+  });
+
+  test("should handle round-trip memory operations", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create memory archive
+    const writer = createMemoryArchive();
+    const originalData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", originalData, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Open memory archive
+    const reader = openMemoryArchive(zipData);
+    const extractedData = reader.extractFile(0);
+    reader.close();
+
+    // Compare
+    expect(extractedData.length).toBe(originalData.length);
+    expect(Array.from(extractedData)).toEqual(Array.from(originalData));
+
+    const extractedText = new TextDecoder().decode(extractedData);
+    expect(extractedText).toBe(testTextData);
+  });
+
+  test("should handle different data types in memory archive", async () => {
+    const { createMemoryArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create memory archive with different data types
+    const writer = createMemoryArchive();
+    
+    // Uint8Array
+    const uint8Data = new Uint8Array([1, 2, 3, 4, 5]);
+    writer.addFile("data.bin", uint8Data);
+    
+    // ArrayBuffer
+    const arrayBuffer = new ArrayBuffer(8);
+    const view = new DataView(arrayBuffer);
+    view.setInt32(0, 42, true);
+    writer.addFile("config.bin", arrayBuffer);
+    
+    const zipData = writer.finalizeToMemory();
+
+    // Open memory archive and extract
+    const reader = openMemoryArchive(zipData);
+    expect(reader.getFileCount()).toBe(2);
+
+    const extractedUint8 = reader.extractFile(0);
+    expect(Array.from(extractedUint8)).toEqual([1, 2, 3, 4, 5]);
+
+    const extractedArrayBuffer = reader.extractFile(1);
+    expect(extractedArrayBuffer.length).toBe(8);
+
+    reader.close();
+  });
+
+  test("should verify memory ZIP data is valid by writing to file", async () => {
+    const { createMemoryArchive, openArchive } = await import("./index.ts");
+
+    // Create a memory archive
+    const writer = createMemoryArchive();
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    const zipData = writer.finalizeToMemory();
+
+    // Write the memory ZIP data to a file
+    const tempFile = "temp_memory_test.zip";
+    await Bun.write(tempFile, zipData);
+
+    // Try to open it as a regular file-based ZIP
+    const reader = openArchive(tempFile);
+    expect(reader.getFileCount()).toBe(1);
+    
+    const extractedData = reader.extractFile(0);
+    const extractedText = new TextDecoder().decode(extractedData);
+    expect(extractedText).toBe(testTextData);
+    
+    reader.close();
+
+    // Clean up
+    await Bun.file(tempFile).delete();
+  });
+
+  test("should open memory archive from real ZIP file", async () => {
+    const { openArchive, openMemoryArchive } = await import("./index.ts");
+
+    // Create a real ZIP file first
+    const writer = createArchive("test_real.zip");
+    const textData = new TextEncoder().encode(testTextData);
+    writer.addFile("test.txt", textData, CompressionLevel.DEFAULT);
+    writer.finalize();
+
+    // Read the ZIP file into memory
+    const zipData = await Bun.file("test_real.zip").arrayBuffer();
+    const zipBuffer = new Uint8Array(zipData);
+
+    // Open the memory archive
+    const reader = openMemoryArchive(zipBuffer);
+    expect(reader.getFileCount()).toBe(1);
+    
+    const extractedData = reader.extractFile(0);
+    const extractedText = new TextDecoder().decode(extractedData);
+    expect(extractedText).toBe(testTextData);
+    
+    reader.close();
+
+    // Clean up
+    await Bun.file("test_real.zip").delete();
+  });
+});

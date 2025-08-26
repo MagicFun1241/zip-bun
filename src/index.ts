@@ -17,6 +17,7 @@ const {
     finalize_zip_in_memory,
     free_memory_zip_result,
     open_zip,
+    open_zip_from_memory,
     get_file_count,
     get_file_info,
     extract_file,
@@ -55,6 +56,10 @@ const {
     },
     open_zip: {
       args: ["cstring"],
+      returns: "i32",
+    },
+    open_zip_from_memory: {
+      args: ["ptr", "u64"],
       returns: "i32",
     },
     get_file_count: {
@@ -263,12 +268,41 @@ export class ZipArchiveWriter implements ZipWriter {
 export class ZipArchiveReader implements ZipReader {
   private handleId: number;
 
-  constructor(filename: string) {
-    const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
-    const filenamePtr = ptr(filenameBuffer);
-    this.handleId = open_zip(filenamePtr);
-    if (this.handleId < 0) {
-      throw new Error(`Failed to open zip archive: ${filename}`);
+  constructor(filenameOrData: string | FileData) {
+    if (typeof filenameOrData === "string") {
+      // File-based zip
+      const filenameBuffer = Buffer.from(`${filenameOrData}\0`, "utf8");
+      const filenamePtr = ptr(filenameBuffer);
+
+      this.handleId = open_zip(filenamePtr);
+
+      if (this.handleId < 0) {
+        throw new Error(`Failed to open zip archive: ${filenameOrData}`);
+      }
+    } else {
+      // Memory-based zip
+      let dataLength = 0;
+      let dataPtr: any;
+
+      if (filenameOrData instanceof Uint8Array) {
+        dataLength = filenameOrData.length;
+        dataPtr = ptr(filenameOrData);
+      } else if (filenameOrData instanceof ArrayBuffer) {
+        dataLength = filenameOrData.byteLength;
+        const buffer = new Uint8Array(filenameOrData);
+        dataPtr = ptr(buffer);
+      } else if (filenameOrData instanceof DataView) {
+        dataLength = filenameOrData.byteLength;
+        const buffer = new Uint8Array(filenameOrData.buffer, filenameOrData.byteOffset, filenameOrData.byteLength);
+        dataPtr = ptr(buffer);
+      } else {
+        throw new Error("Unsupported data type for memory-based zip archive");
+      }
+
+      this.handleId = open_zip_from_memory(dataPtr, dataLength);
+      if (this.handleId < 0) {
+        throw new Error("Failed to open memory-based zip archive");
+      }
     }
   }
 
@@ -399,6 +433,11 @@ export function createMemoryArchive(): ZipArchiveWriter {
 export function openArchive(filename: string): ZipArchiveReader {
   return new ZipArchiveReader(filename);
 }
+
+export function openMemoryArchive(data: FileData): ZipArchiveReader {
+  return new ZipArchiveReader(data);
+}
+
 
 // Utility function to create a zip from a directory
 export async function zipDirectory(

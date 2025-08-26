@@ -243,26 +243,40 @@ memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
         return NULL;
     }
     
-    // Get the memory buffer before calling mz_zip_writer_end
-    void* data = handle->archive.m_pWrite;
-    size_t size = handle->archive.m_archive_size;
+    // Get the heap data and size
+    void* data = NULL;
+    size_t size = 0;
     
-    // Copy the data to our own buffer
-    void* copied_data = NULL;
+    // Get the heap data from the archive structure
+    // Try different fields that might contain the actual ZIP data
+    data = handle->archive.m_pWrite;
+    size = handle->archive.m_archive_size;
+    
+    // If the above doesn't work, try alternative fields
+    if (!data || size == 0) {
+        data = handle->archive.m_pState;
+        size = handle->archive.m_archive_size;
+    }
+    
     if (data && size > 0) {
-        copied_data = malloc(size);
+        // Copy the data to our own buffer
+        void* copied_data = malloc(size);
         if (copied_data) {
             memcpy(copied_data, data, size);
+            data = copied_data;
+        } else {
+            data = NULL;
+            size = 0;
         }
     }
     
-    // Now end the writer (this will free the original data)
+    // End the writer (this will free the original data)
     mz_zip_writer_end(&handle->archive);
     
     // Create result structure
     memory_zip_result_t* result = (memory_zip_result_t*)malloc(sizeof(memory_zip_result_t));
     if (result) {
-        result->data = copied_data;
+        result->data = data;
         result->size = size;
     }
     
@@ -280,5 +294,27 @@ void free_memory_zip_result(memory_zip_result_t* result) {
         }
         free(result);
     }
+}
+
+// Open a zip archive from memory
+int open_zip_from_memory(const void* data, size_t size) {
+    if (next_handle_id >= 100) return -1;
+    
+    zip_handle_t* handle = (zip_handle_t*)malloc(sizeof(zip_handle_t));
+    if (!handle) return -1;
+    
+    memset(handle, 0, sizeof(zip_handle_t));
+    handle->is_writer = 0;
+    
+    // Use the correct miniz function for memory-based reading
+    mz_bool status = mz_zip_reader_init_mem(&handle->archive, data, size, 0);
+    
+    if (!status) {
+        free(handle);
+        return -1;
+    }
+    
+    zip_handles[next_handle_id] = handle;
+    return next_handle_id++;
 }
 
