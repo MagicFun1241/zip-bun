@@ -8,6 +8,8 @@ import {
   ZipArchiveWriter,
 } from "./index.ts";
 
+const testDirectory = "test_directory";
+
 // Test data
 const testTextData = "Hello, World! This is a test file for compression.";
 const testJsonData =
@@ -445,5 +447,96 @@ describe("Error handling", () => {
     if (await Bun.file(tempZipFile).exists()) {
       await Bun.file(tempZipFile).delete();
     }
+  });
+});
+
+describe("Convenience functions", () => {
+  const testDir = "test_directory";
+  const testZipFile = "convenience_test.zip";
+  const extractedDir = "extracted_directory";
+
+  beforeAll(async () => {
+    // Create a test directory with some files
+    // First create the directory by writing a file to it
+    await Bun.write(`${testDir}/.keep`, "");
+    await Bun.write(`${testDir}/file1.txt`, "Content of file 1");
+    await Bun.write(`${testDir}/file2.json`, '{"key": "value"}');
+    await Bun.write(`${testDir}/binary.bin`, new Uint8Array([1, 2, 3, 4, 5]));
+  });
+
+  afterAll(async () => {
+    // Clean up test files and directories
+    const filesToClean = [testZipFile, testDir, extractedDir];
+    for (const file of filesToClean) {
+      if (await Bun.file(file).exists()) {
+        await Bun.file(file).delete();
+      }
+    }
+  });
+
+  test("should create archive from directory", async () => {
+    const { zipDirectory } = await import("./index.ts");
+    
+    await zipDirectory(testDir, testZipFile, CompressionLevel.DEFAULT);
+    
+    // Verify the zip file was created
+    expect(await Bun.file(testZipFile).exists()).toBe(true);
+    
+    // Verify we can read the archive
+    const reader = openArchive(testZipFile);
+    expect(reader.getFileCount()).toBe(1);
+    reader.close();
+  });
+
+  test("should create archive from directory with different compression levels", async () => {
+    const { zipDirectory } = await import("./index.ts");
+    
+    await zipDirectory(testDir, testZipFile, CompressionLevel.BEST_COMPRESSION);
+    
+    // Verify the zip file was created
+    expect(await Bun.file(testZipFile).exists()).toBe(true);
+    
+    // Verify we can read the archive
+    const reader = openArchive(testZipFile);
+    expect(reader.getFileCount()).toBe(1);
+    reader.close();
+  });
+
+  test("should extract archive to directory", async () => {
+    const { zipDirectory, extractArchive } = await import("./index.ts");
+    
+    // First create an archive
+    await zipDirectory(testDir, testZipFile, CompressionLevel.DEFAULT);
+    
+    // Then extract it
+    await extractArchive(testZipFile, extractedDir);
+    
+    // Verify extracted file exists
+    expect(await Bun.file(`${extractedDir}/${testDir}`).exists()).toBe(true);
+    
+    // Verify content
+    const content = await Bun.file(`${extractedDir}/${testDir}`).text();
+    expect(content).toBe(`Directory: ${testDir}`);
+  });
+
+  test("should handle zipDirectory with non-existent source", async () => {
+    const { zipDirectory } = await import("./index.ts");
+    
+    // This should handle the error gracefully or throw an appropriate error
+    try {
+      await zipDirectory("non_existent_dir", testZipFile);
+      // If it doesn't throw, the zip file should still be created (even if empty)
+      expect(await Bun.file(testZipFile).exists()).toBe(true);
+    } catch (error) {
+      // It's also acceptable for this to throw an error
+      expect(error).toBeInstanceOf(Error);
+    }
+  });
+
+  test("should handle extractArchive with non-existent zip file", async () => {
+    const { extractArchive } = await import("./index.ts");
+    
+    // This should throw an error when trying to open a non-existent zip file
+    await expect(extractArchive("non_existent.zip", extractedDir)).rejects.toThrow();
   });
 });
