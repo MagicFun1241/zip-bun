@@ -1,9 +1,11 @@
 import { cc, ptr, read } from "bun:ffi";
-
 import { join } from "node:path";
+import { Glob } from "bun";
 
 const includePath = import.meta.dir;
 const wrapperPath = join(includePath, "zip_wrapper.c");
+
+type FileData = NodeJS.TypedArray | ArrayBufferLike | DataView;
 
 // Compile the C code with all the zip functions
 const {
@@ -89,11 +91,7 @@ export interface ZipFileInfo {
 //#region ZipWriter
 
 export interface ZipWriter {
-  addFile(
-    filename: string,
-    data: Uint8Array,
-    compressionLevel?: number,
-  ): boolean;
+  addFile(filename: string, data: FileData, compressionLevel?: number): boolean;
   finalize(): boolean;
 }
 
@@ -146,7 +144,7 @@ export class ZipArchiveWriter implements ZipWriter {
 
   addFile(
     filename: string,
-    data: Uint8Array,
+    data: FileData,
     compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT,
   ): boolean {
     if (this.handleId === -1) {
@@ -155,12 +153,21 @@ export class ZipArchiveWriter implements ZipWriter {
     const dataPtr = ptr(data);
     const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
+
+    let dataLength = 0;
+
+    if ("length" in data) {
+      dataLength = data.length;
+    } else if ("byteLength" in data) {
+      dataLength = data.byteLength;
+    }
+
     return Boolean(
       add_file_to_zip(
         this.handleId,
         filenamePtr,
         dataPtr,
-        data.length,
+        dataLength,
         compressionLevel,
       ),
     );
@@ -324,10 +331,23 @@ export async function zipDirectory(
   const writer = createArchive(outputFile);
 
   try {
-    // For now, we'll create a simple implementation that adds the directory as a single file
-    // In a real implementation, you'd want to recursively walk the directory
-    const data = new TextEncoder().encode(`Directory: ${sourceDir}`);
-    writer.addFile(sourceDir, data, compressionLevel);
+    // Use Glob to recursively scan all files in the directory (including hidden files)
+    const glob = new Glob("**/*");
+
+    for await (const file of glob.scan(sourceDir)) {
+      // Skip directories (they will be created automatically when files are added)
+      const filePath = `${sourceDir}/${file}`;
+      const fileInfo = await Bun.file(filePath).stat();
+
+      if (fileInfo.isFile()) {
+        // Read the file content
+        const fileContent = await Bun.file(filePath).arrayBuffer();
+        const data = new Uint8Array(fileContent);
+
+        // Add the file to the zip with its relative path
+        writer.addFile(file, data, compressionLevel);
+      }
+    }
   } finally {
     writer.finalize();
   }
@@ -351,7 +371,7 @@ export async function extractArchive(
         const outputPath = `${outputDir}/${fileInfo.filename}`;
 
         // Ensure the directory exists
-        const dir = outputPath.substring(0, outputPath.lastIndexOf('/'));
+        const dir = outputPath.substring(0, outputPath.lastIndexOf("/"));
         if (dir) {
           // Create directory by writing a temporary file and then removing it
           const tempFile = `${dir}/.temp`;
