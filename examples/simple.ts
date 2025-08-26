@@ -4,7 +4,7 @@ import {
   createZipArchive, 
   openZipArchive, 
   CompressionLevel 
-} from "../index.ts";
+} from "zip-bun";
 
 console.log("Bun Zip Library Example\n");
 

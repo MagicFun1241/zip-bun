@@ -14,9 +14,9 @@ A high-performance ZIP archive library for Bun, built with native C bindings usi
 ## Installation
 
 ```bash
-npm install bun-zip
+npm install zip-bun
 # or
-bun add bun-zip
+bun add zip-bun
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ bun add bun-zip
 ### Creating a ZIP Archive
 
 ```typescript
-import { createZipArchive, CompressionLevel } from "bun-zip";
+import { createZipArchive, CompressionLevel } from "zip-bun";
 
 // Create a new ZIP archive
 const writer = createZipArchive("archive.zip");
@@ -43,7 +43,7 @@ writer.finalize();
 ### Reading a ZIP Archive
 
 ```typescript
-import { openZipArchive } from "bun-zip";
+import { openZipArchive } from "zip-bun";
 
 // Open an existing ZIP archive
 const reader = openZipArchive("archive.zip");
@@ -130,7 +130,7 @@ interface ZipFileInfo {
 ### Creating a ZIP with Multiple Files
 
 ```typescript
-import { createZipArchive, CompressionLevel } from "bun-zip";
+import { createZipArchive, CompressionLevel } from "zip-bun";
 
 const writer = createZipArchive("backup.zip");
 
@@ -152,7 +152,7 @@ writer.finalize();
 ### Extracting All Files from a ZIP
 
 ```typescript
-import { openZipArchive } from "bun-zip";
+import { openZipArchive } from "zip-bun";
 
 const reader = openZipArchive("backup.zip");
 
@@ -174,7 +174,7 @@ reader.close();
 ### Finding and Extracting Specific Files
 
 ```typescript
-import { openZipArchive } from "bun-zip";
+import { openZipArchive } from "zip-bun";
 
 const reader = openZipArchive("archive.zip");
 
