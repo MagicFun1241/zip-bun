@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "type": "module",
   "files": [
-    "src"
+    "src",
+    "images"
   ],
   "scripts": {
     "test": "bun test",
