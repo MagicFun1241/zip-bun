@@ -2,7 +2,9 @@
 
 ![npm](https://img.shields.io/npm/v/zip-bun)
 
-![logo](images/zip-bun.png)
+<p align="center">
+  <img src="images/zip-bun.png" alt="logo" />
+</p>
 
 A high-performance ZIP archive library for Bun, built with native C bindings using the [miniz](https://github.com/richgel999/miniz) compression library and Bun's C compiler.
 
