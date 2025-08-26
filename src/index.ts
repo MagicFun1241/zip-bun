@@ -14,9 +14,7 @@ const {
     add_file_to_zip,
     finalize_zip,
     create_zip_in_memory,
-    finalize_zip_in_memory,
     finalize_zip_in_memory_bytes,
-    free_memory_zip_result,
     open_zip,
     open_zip_from_memory,
     get_file_count,
@@ -47,17 +45,9 @@ const {
       args: [],
       returns: "i32",
     },
-    finalize_zip_in_memory: {
-      args: ["i32"],
-      returns: "ptr",
-    },
     finalize_zip_in_memory_bytes: {
       args: ["i32", "ptr", "u64"],
       returns: "i32",
-    },
-    free_memory_zip_result: {
-      args: ["ptr"],
-      returns: "void",
     },
     open_zip: {
       args: ["cstring"],

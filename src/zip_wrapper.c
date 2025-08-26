@@ -224,13 +224,7 @@ int create_zip_in_memory() {
     return next_handle_id++;
 }
 
-// Get the memory buffer and size from a memory-based zip
-typedef struct {
-    void* data;
-    size_t size;
-} memory_zip_result_t;
-
-// Alternative approach: Return data directly as bytes
+// Return data directly as bytes
 int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buffer_size) {
     if (handle_id < 0 || handle_id >= 100 || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
         return -1;
@@ -262,57 +256,6 @@ int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buff
     zip_handles[handle_id] = NULL;
     
     return (int)size;
-}
-
-memory_zip_result_t* finalize_zip_in_memory(int handle_id) {
-    if (handle_id < 0 || handle_id >= 100 || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
-        return NULL;
-    }
-    
-    zip_handle_t* handle = zip_handles[handle_id];
-    
-    // Use mz_zip_writer_finalize_heap_archive but handle the data differently
-    void* data = NULL;
-    size_t size = 0;
-    
-    mz_bool status = mz_zip_writer_finalize_heap_archive(&handle->archive, &data, &size);
-    if (!status || !data || size == 0) {
-        return NULL;
-    }
-    
-    // Copy the data to our own buffer
-    void* copied_data = malloc(size);
-    if (!copied_data) {
-        return NULL;
-    }
-    memcpy(copied_data, data, size);
-    
-    // Create result structure
-    memory_zip_result_t* result = (memory_zip_result_t*)malloc(sizeof(memory_zip_result_t));
-    if (result) {
-        result->data = copied_data;
-        result->size = size;
-    } else {
-        free(copied_data);
-    }
-    
-    // End the writer
-    mz_zip_writer_end(&handle->archive);
-    
-    free(handle);
-    zip_handles[handle_id] = NULL;
-    
-    return result;
-}
-
-// Free memory zip result
-void free_memory_zip_result(memory_zip_result_t* result) {
-    if (result) {
-        if (result->data) {
-            free(result->data);
-        }
-        free(result);
-    }
 }
 
 // Open a zip archive from memory
