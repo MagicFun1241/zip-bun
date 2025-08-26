@@ -1,8 +1,9 @@
 import { cc, ptr, read } from "bun:ffi";
 
-import { content } from './zip_wrapper' with { type: 'macro' };
+import { join } from "node:path";
 
-const zipSource = content();
+const includePath = import.meta.dir;
+const wrapperPath = join(includePath, "zip_wrapper.c");
 
 // Compile the C code with all the zip functions
 const {
@@ -20,7 +21,8 @@ const {
     free_extracted_data,
   },
 } = cc({
-  source: zipSource,
+  source: wrapperPath,
+  include: [includePath],
   symbols: {
     create_zip: {
       args: ["cstring"],
