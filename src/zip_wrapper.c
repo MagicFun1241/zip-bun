@@ -258,6 +258,8 @@ int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buff
     return (int)size;
 }
 
+
+
 // Open a zip archive from memory
 int open_zip_from_memory(const void* data, size_t size) {
     if (next_handle_id >= 100) return -1;

@@ -7,6 +7,16 @@ const wrapperPath = join(includePath, "zip_wrapper.c");
 
 type FileData = NodeJS.TypedArray | ArrayBufferLike | DataView;
 
+// Use the new bytes function approach with intelligent buffer sizing
+// Start with a reasonable buffer size and increase if needed
+const bufferSizes = [
+  10 * 1024 * 1024, // 10MB
+  50 * 1024 * 1024, // 50MB
+  100 * 1024 * 1024, // 100MB
+  500 * 1024 * 1024, // 500MB
+  1024 * 1024 * 1024, // 1GB
+];
+
 // Compile the C code with all the zip functions
 const {
   symbols: {
@@ -226,26 +236,42 @@ export class ZipArchiveWriter implements ZipWriter {
       throw new Error("Use finalize() for file-based zip archives");
     }
 
-    // Use the new bytes function approach
-    // First, we need to estimate the size. Let's try with a reasonable buffer size
-    const estimatedSize = 1024 * 1024; // 1MB should be enough for most cases
-    const buffer = new ArrayBuffer(estimatedSize);
-    const bufferPtr = ptr(buffer);
+    let resultSize = -2;
+    let buffer: ArrayBuffer | null = null;
+    let bufferPtr: ReturnType<typeof ptr> | null = null;
 
-    const resultSize = finalize_zip_in_memory_bytes(
-      this.handleId,
-      bufferPtr,
-      estimatedSize,
-    );
+    for (const estimatedSize of bufferSizes) {
+      buffer = new ArrayBuffer(estimatedSize);
+      bufferPtr = ptr(buffer);
+
+      resultSize = finalize_zip_in_memory_bytes(
+        this.handleId,
+        bufferPtr,
+        estimatedSize,
+      );
+
+      if (resultSize > 0) {
+        break; // Success
+      } else if (resultSize === -2) {
+        // Buffer too small, try next size
+        // biome-ignore lint/complexity/noUselessContinue: should continue
+        continue;
+      } else {
+        // Other error
+        throw new Error("Failed to finalize memory-based zip archive");
+      }
+    }
 
     if (resultSize <= 0) {
-      throw new Error("Failed to finalize memory-based zip archive");
+      throw new Error(
+        "Failed to finalize memory-based zip archive - buffer size exceeded 1GB",
+      );
     }
 
     // Create a new buffer with the actual size
     const actualBuffer = new ArrayBuffer(resultSize);
     const actualView = new Uint8Array(actualBuffer);
-    const originalView = new Uint8Array(buffer, 0, resultSize);
+    const originalView = new Uint8Array(buffer!, 0, resultSize);
 
     actualView.set(originalView);
     this.handleId = -1;
