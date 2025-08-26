@@ -86,7 +86,7 @@ enum CompressionLevel {
 
 #### Constructor
 ```typescript
-createZipArchive(filename: string): ZipArchiveWriter
+createArchive(filename: string): ZipArchiveWriter
 ```
 
 #### Methods
@@ -99,7 +99,7 @@ finalize(): boolean
 
 #### Constructor
 ```typescript
-openZipArchive(filename: string): ZipArchiveReader
+openArchive(filename: string): ZipArchiveReader
 ```
 
 #### Methods
@@ -238,16 +238,6 @@ bun test zip.test.ts
 ```bash
 # Build the project
 bun run build
-```
-
-### Linting
-
-```bash
-# Run linter
-bun run lint
-
-# Format code
-bun run format
 ```
 
 ## Contributing

@@ -1,10 +1,6 @@
 #!/usr/bin/env bun
 
-import { 
-  createArchive, 
-  openArchive, 
-  CompressionLevel 
-} from "zip-bun";
+import { CompressionLevel, createArchive, openArchive } from "zip-bun";
 
 console.log("Bun Zip Library Example\n");
 
@@ -16,10 +12,16 @@ const writer = createArchive("example.zip");
 const textData = new TextEncoder().encode("Hello, World! This is a text file.");
 writer.addFile("hello.txt", textData, CompressionLevel.DEFAULT);
 
-const jsonData = new TextEncoder().encode('{"message": "Hello from JSON!", "timestamp": "' + new Date().toISOString() + '"}');
+const jsonData = new TextEncoder().encode(
+  '{"message": "Hello from JSON!", "timestamp": "' +
+    new Date().toISOString() +
+    '"}',
+);
 writer.addFile("data.json", jsonData, CompressionLevel.BEST_COMPRESSION);
 
-const binaryData = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]); // PNG header
+const binaryData = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]); // PNG header
 writer.addFile("sample.png", binaryData, CompressionLevel.BEST_SPEED);
 
 writer.finalize();
@@ -35,7 +37,9 @@ console.log(`Archive contains ${reader.getFileCount()} files:\n`);
 for (let i = 0; i < reader.getFileCount(); i++) {
   const fileInfo = reader.getFileInfo(i);
   console.log(`${fileInfo.filename}`);
-  console.log(`   Size: ${fileInfo.uncompressedSize} bytes (compressed: ${fileInfo.compressedSize} bytes)`);
+  console.log(
+    `   Size: ${fileInfo.uncompressedSize} bytes (compressed: ${fileInfo.compressedSize} bytes)`,
+  );
   console.log(`   Directory: ${fileInfo.directory ? "Yes" : "No"}`);
   console.log(`   Encrypted: ${fileInfo.encrypted ? "Yes" : "No"}`);
   console.log("");

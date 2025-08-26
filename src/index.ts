@@ -84,7 +84,11 @@ export interface ZipFileInfo {
 }
 
 export interface ZipWriter {
-  addFile(filename: string, data: Uint8Array, compressionLevel?: number): boolean;
+  addFile(
+    filename: string,
+    data: Uint8Array,
+    compressionLevel?: number,
+  ): boolean;
   finalize(): boolean;
 }
 
@@ -105,14 +109,15 @@ export const CompressionLevel = {
   DEFAULT: 6,
 } as const;
 
-export type CompressionLevelType = typeof CompressionLevel[keyof typeof CompressionLevel];
+export type CompressionLevelType =
+  (typeof CompressionLevel)[keyof typeof CompressionLevel];
 
 // ZipWriter class
 export class ZipArchiveWriter implements ZipWriter {
   private handleId: number;
 
   constructor(filename: string) {
-    const filenameBuffer = Buffer.from(filename + '\0', 'utf8');
+    const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
     this.handleId = create_zip(filenamePtr);
     if (this.handleId < 0) {
@@ -120,14 +125,26 @@ export class ZipArchiveWriter implements ZipWriter {
     }
   }
 
-  addFile(filename: string, data: Uint8Array, compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT): boolean {
+  addFile(
+    filename: string,
+    data: Uint8Array,
+    compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT,
+  ): boolean {
     if (this.handleId === -1) {
       throw new Error("ZipArchiveWriter has already been finalized");
     }
     const dataPtr = ptr(data);
-    const filenameBuffer = Buffer.from(filename + '\0', 'utf8');
+    const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
-    return Boolean(add_file_to_zip(this.handleId, filenamePtr, dataPtr, data.length, compressionLevel));
+    return Boolean(
+      add_file_to_zip(
+        this.handleId,
+        filenamePtr,
+        dataPtr,
+        data.length,
+        compressionLevel,
+      ),
+    );
   }
 
   finalize(): boolean {
@@ -145,7 +162,7 @@ export class ZipArchiveReader implements ZipReader {
   private handleId: number;
 
   constructor(filename: string) {
-    const filenameBuffer = Buffer.from(filename + '\0', 'utf8');
+    const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
     this.handleId = open_zip(filenamePtr);
     if (this.handleId < 0) {
@@ -161,32 +178,32 @@ export class ZipArchiveReader implements ZipReader {
     // Create a buffer for the file_info_t struct
     const infoBuffer = new ArrayBuffer(1024); // Size for file_info_t struct
     const infoPtr = ptr(infoBuffer);
-    
+
     const success = get_file_info(this.handleId, index, infoPtr);
     if (!success) {
       throw new Error(`Failed to get file info for index ${index}`);
     }
-    
+
     // Read the struct data
     const view = new DataView(infoBuffer);
     const decoder = new TextDecoder();
-    
+
     // Read filename (first 256 bytes)
     const filenameBytes = new Uint8Array(infoBuffer, 0, 256);
-    const filename = decoder.decode(filenameBytes).replace(/\0/g, '');
-    
+    const filename = decoder.decode(filenameBytes).replace(/\0/g, "");
+
     // Read comment (next 256 bytes)
     const commentBytes = new Uint8Array(infoBuffer, 256, 256);
-    const comment = decoder.decode(commentBytes).replace(/\0/g, '');
-    
+    const comment = decoder.decode(commentBytes).replace(/\0/g, "");
+
     // Read sizes (assuming size_t is 8 bytes on 64-bit systems)
     const uncompressedSize = Number(view.getBigUint64(512, true));
     const compressedSize = Number(view.getBigUint64(520, true));
-    
+
     // Read flags
     const directory = Boolean(view.getInt32(528, true));
     const encrypted = Boolean(view.getInt32(532, true));
-    
+
     return {
       filename,
       comment,
@@ -201,56 +218,56 @@ export class ZipArchiveReader implements ZipReader {
     const sizeBuffer = new ArrayBuffer(8);
     const sizePtr = ptr(sizeBuffer);
     const dataPtr = extract_file(this.handleId, index, sizePtr);
-    
+
     if (!dataPtr) {
       throw new Error(`Failed to extract file at index ${index}`);
     }
-    
+
     // Read the size from the size buffer
     const sizeView = new DataView(sizeBuffer);
     const size = Number(sizeView.getBigUint64(0, true));
-    
+
     // Convert the data pointer to Uint8Array using read function
     const data = new Uint8Array(size);
     for (let i = 0; i < size; i++) {
       data[i] = read.u8(dataPtr, i);
     }
-    
+
     // Free the allocated memory
     free_extracted_data(dataPtr);
-    
+
     return data;
   }
 
   extractFileByName(filename: string): Uint8Array {
     const sizeBuffer = new ArrayBuffer(8);
     const sizePtr = ptr(sizeBuffer);
-    const filenameBuffer = Buffer.from(filename + '\0', 'utf8');
+    const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
     const dataPtr = extract_file_by_name(this.handleId, filenamePtr, sizePtr);
-    
+
     if (!dataPtr) {
       throw new Error(`File not found in archive: ${filename}`);
     }
-    
+
     // Read the size from the size buffer
     const sizeView = new DataView(sizeBuffer);
     const size = Number(sizeView.getBigUint64(0, true));
-    
+
     // Convert the data pointer to Uint8Array using read function
     const data = new Uint8Array(size);
     for (let i = 0; i < size; i++) {
       data[i] = read.u8(dataPtr, i);
     }
-    
+
     // Free the allocated memory
     free_extracted_data(dataPtr);
-    
+
     return data;
   }
 
   findFile(filename: string): number {
-    const filenameBuffer = Buffer.from(filename + '\0', 'utf8');
+    const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
     return find_file(this.handleId, filenamePtr);
   }
@@ -275,9 +292,13 @@ export function openArchive(filename: string): ZipArchiveReader {
 }
 
 // Utility function to create a zip from a directory
-export async function zipDirectory(sourceDir: string, outputFile: string, compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT): Promise<void> {
+export async function zipDirectory(
+  sourceDir: string,
+  outputFile: string,
+  compressionLevel: CompressionLevelType = CompressionLevel.DEFAULT,
+): Promise<void> {
   const writer = createArchive(outputFile);
-  
+
   try {
     const entries = await Bun.file(sourceDir).arrayBuffer();
 
@@ -289,19 +310,22 @@ export async function zipDirectory(sourceDir: string, outputFile: string, compre
 }
 
 // Utility function to extract all files from a zip
-export async function extractArchive(zipFile: string, outputDir: string): Promise<void> {
+export async function extractArchive(
+  zipFile: string,
+  outputDir: string,
+): Promise<void> {
   const reader = openArchive(zipFile);
-  
+
   try {
     const fileCount = reader.getFileCount();
-    
+
     for (let i = 0; i < fileCount; i++) {
       const fileInfo = reader.getFileInfo(i);
-      
+
       if (!fileInfo.directory) {
         const data = reader.extractFile(i);
         const outputPath = `${outputDir}/${fileInfo.filename}`;
-        
+
         // Ensure the directory exists
         await Bun.write(outputPath, data);
       }

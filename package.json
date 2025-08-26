@@ -1,6 +1,6 @@
 {
   "name": "zip-bun",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A high-performance zip archive library for Bun with native C bindings",
   "main": "src/index.ts",
   "type": "module",
@@ -9,7 +9,9 @@
   ],
   "scripts": {
     "test": "bun test",
-    "test:coverage": "bun test --coverage"
+    "test:coverage": "bun test --coverage",
+    "lint": "biome check",
+    "lint:write": "biome check --write"
   },
   "keywords": [
     "zip",
@@ -36,6 +38,7 @@
     "bun": ">=1.2.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.2.2",
     "@types/bun": "latest"
   },
   "peerDependencies": {
