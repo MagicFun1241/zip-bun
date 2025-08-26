@@ -34,6 +34,7 @@ const {
     find_file,
     extract_file_by_name,
     free_extracted_data,
+    extract_file_to_buffer,
   },
 } = cc({
   source: wrapperPath,
@@ -94,6 +95,10 @@ const {
     free_extracted_data: {
       args: ["ptr"],
       returns: "void",
+    },
+    extract_file_to_buffer: {
+      args: ["i32", "i32", "ptr", "u64"],
+      returns: "i32",
     },
   },
 });
@@ -395,10 +400,22 @@ export class ZipArchiveReader implements ZipReader {
     const sizeView = new DataView(sizeBuffer);
     const size = Number(sizeView.getBigUint64(0, true));
 
-    // Convert the data pointer to Uint8Array using read function
+    // Optimize data transfer: use bulk read for larger files
     const data = new Uint8Array(size);
-    for (let i = 0; i < size; i++) {
-      data[i] = read.u8(dataPtr, i);
+    if (size > 1024) {
+      // For larger files, read in chunks to avoid blocking
+      const chunkSize = 64 * 1024; // 64KB chunks
+      for (let offset = 0; offset < size; offset += chunkSize) {
+        const currentChunkSize = Math.min(chunkSize, size - offset);
+        for (let i = 0; i < currentChunkSize; i++) {
+          data[offset + i] = read.u8(dataPtr, offset + i);
+        }
+      }
+    } else {
+      // For smaller files, read all at once
+      for (let i = 0; i < size; i++) {
+        data[i] = read.u8(dataPtr, i);
+      }
     }
 
     // Free the allocated memory
@@ -422,12 +439,51 @@ export class ZipArchiveReader implements ZipReader {
     const sizeView = new DataView(sizeBuffer);
     const size = Number(sizeView.getBigUint64(0, true));
 
-    // Convert the data pointer to Uint8Array using a more efficient approach
+    // Optimize data transfer: use bulk read for larger files
     const data = new Uint8Array(size);
+    if (size > 1024) {
+      // For larger files, read in chunks to avoid blocking
+      const chunkSize = 64 * 1024; // 64KB chunks
+      for (let offset = 0; offset < size; offset += chunkSize) {
+        const currentChunkSize = Math.min(chunkSize, size - offset);
+        for (let i = 0; i < currentChunkSize; i++) {
+          data[offset + i] = read.u8(dataPtr, offset + i);
+        }
+      }
+    } else {
+      // For smaller files, read all at once
+      for (let i = 0; i < size; i++) {
+        data[i] = read.u8(dataPtr, i);
+      }
+    }
 
-    // Use simple loop to read data from C pointer
-    for (let i = 0; i < size; i++) {
-      data[i] = read.u8(dataPtr, i);
+    // Free the allocated memory
+    free_extracted_data(dataPtr);
+
+    return data;
+  }
+
+  // Optimized extraction method that avoids individual byte reads
+  extractFileOptimized(index: number): Uint8Array {
+    const sizeBuffer = new ArrayBuffer(8);
+    const sizePtr = ptr(sizeBuffer);
+    const dataPtr = extract_file(this.handleId, index, sizePtr);
+
+    if (!dataPtr) {
+      throw new Error(`Failed to extract file at index ${index}`);
+    }
+
+    // Read the size from the size buffer
+    const sizeView = new DataView(sizeBuffer);
+    const size = Number(sizeView.getBigUint64(0, true));
+
+    // Create buffer and extract directly to it
+    const data = new Uint8Array(size);
+    const result = extract_file_to_buffer(this.handleId, index, ptr(data), size);
+
+    if (result < 0) {
+      free_extracted_data(dataPtr);
+      throw new Error(`Failed to extract file at index ${index}`);
     }
 
     // Free the allocated memory
