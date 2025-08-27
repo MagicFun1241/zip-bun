@@ -1,6 +1,6 @@
 {
   "name": "zip-bun",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A high-performance zip archive library for Bun with native C bindings",
   "main": "src/index.ts",
   "type": "module",
