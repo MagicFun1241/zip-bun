@@ -105,43 +105,6 @@ export class ZipArchiveReader implements ZipReader {
     };
   }
 
-  extractFile(index: number): Uint8Array {
-    const sizeBuffer = new ArrayBuffer(8);
-    const sizePtr = ptr(sizeBuffer);
-    const dataPtr = extract_file(this.handleId, index, sizePtr);
-
-    if (!dataPtr) {
-      throw new Error(`Failed to extract file at index ${index}`);
-    }
-
-    // Read the size from the size buffer
-    const sizeView = new DataView(sizeBuffer);
-    const size = Number(sizeView.getBigUint64(0, true));
-
-    // Optimize data transfer: use bulk read for larger files
-    const data = new Uint8Array(size);
-    if (size > 1024) {
-      // For larger files, read in chunks to avoid blocking
-      const chunkSize = 64 * 1024; // 64KB chunks
-      for (let offset = 0; offset < size; offset += chunkSize) {
-        const currentChunkSize = Math.min(chunkSize, size - offset);
-        for (let i = 0; i < currentChunkSize; i++) {
-          data[offset + i] = read.u8(dataPtr, offset + i);
-        }
-      }
-    } else {
-      // For smaller files, read all at once
-      for (let i = 0; i < size; i++) {
-        data[i] = read.u8(dataPtr, i);
-      }
-    }
-
-    // Free the allocated memory
-    free_extracted_data(dataPtr);
-
-    return data;
-  }
-
   extractFileByName(filename: string): Uint8Array {
     const sizeBuffer = new ArrayBuffer(8);
     const sizePtr = ptr(sizeBuffer);
@@ -181,8 +144,7 @@ export class ZipArchiveReader implements ZipReader {
     return data;
   }
 
-  // Optimized extraction method that avoids individual byte reads
-  extractFileOptimized(index: number): Uint8Array {
+  extractFile(index: number): Uint8Array {
     const sizeBuffer = new ArrayBuffer(8);
     const sizePtr = ptr(sizeBuffer);
     const dataPtr = extract_file(this.handleId, index, sizePtr);

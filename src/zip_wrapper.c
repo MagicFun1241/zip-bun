@@ -258,6 +258,24 @@ int create_zip_in_memory() {
     return next_handle_id++;
 }
 
+// Get the size of the final archive without finalizing
+int get_zip_final_size(int handle_id) {
+    if (handle_id < 0 || handle_id >= MAX_HANDLES || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
+        return -1;
+    }
+    
+    zip_handle_t* handle = zip_handles[handle_id];
+    
+    // Get the current size of the archive
+    size_t current_size = handle->archive.m_pState->m_mem_size;
+    
+    // Estimate the final size (this is approximate)
+    // The final size will be larger due to central directory and other metadata
+    size_t estimated_final_size = current_size + (1024 * 1024); // Add 1MB for metadata
+    
+    return (int)estimated_final_size;
+}
+
 // Return data directly as bytes
 int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buffer_size) {
     if (handle_id < 0 || handle_id >= MAX_HANDLES || !zip_handles[handle_id] || !zip_handles[handle_id]->is_writer) {
@@ -266,7 +284,7 @@ int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buff
     
     zip_handle_t* handle = zip_handles[handle_id];
     
-    // Use mz_zip_writer_finalize_heap_archive but handle the data differently
+    // Use mz_zip_writer_finalize_heap_archive which handles the memory allocation properly
     void* data = NULL;
     size_t size = 0;
     
@@ -283,9 +301,8 @@ int finalize_zip_in_memory_bytes(int handle_id, void* output_buffer, size_t buff
     // Copy the data directly to the output buffer
     memcpy(output_buffer, data, size);
     
-    // End the writer
-    mz_zip_writer_end(&handle->archive);
-    
+    // The mz_zip_writer_finalize_heap_archive already handles cleanup
+    // We just need to free our handle
     free(handle);
     zip_handles[handle_id] = NULL;
     

@@ -25,6 +25,10 @@ export const { symbols } = cc({
       args: [],
       returns: "i32",
     },
+    get_zip_final_size: {
+      args: ["i32"],
+      returns: "i32",
+    },
     finalize_zip_in_memory_bytes: {
       args: ["i32", "ptr", "u64"],
       returns: "i32",

@@ -1,5 +1,4 @@
 import { ptr } from "bun:ffi";
-import { bufferSizes } from "../buffering.ts";
 import { CompressionLevel, type CompressionLevelType } from "../compression.ts";
 import type { FileData } from "../interfaces/file.ts";
 import type { ZipWriter } from "../interfaces/writer.ts";
@@ -9,6 +8,7 @@ const {
   create_zip,
   create_zip_in_memory,
   finalize_zip,
+  get_zip_final_size,
   finalize_zip_in_memory_bytes,
   add_file_to_zip,
 } = symbols;
@@ -98,44 +98,36 @@ export class ZipArchiveWriter implements ZipWriter {
       throw new Error("Use finalize() for file-based zip archives");
     }
 
-    let resultSize = -2;
-    let buffer: ArrayBuffer | null = null;
-    let bufferPtr: ReturnType<typeof ptr> | null = null;
-
-    for (const estimatedSize of bufferSizes) {
-      buffer = new ArrayBuffer(estimatedSize);
-      bufferPtr = ptr(buffer);
-
-      resultSize = finalize_zip_in_memory_bytes(
-        this.handleId,
-        bufferPtr,
-        estimatedSize,
-      );
-
-      if (resultSize > 0) {
-        break; // Success
-      } else if (resultSize === -2) {
-        // Buffer too small, try next size
-        // biome-ignore lint/complexity/noUselessContinue: should continue
-        continue;
-      } else {
-        // Other error
-        throw new Error("Failed to finalize memory-based zip archive");
-      }
+    // First, estimate the final size
+    const estimatedSize = get_zip_final_size(this.handleId);
+    if (estimatedSize <= 0) {
+      throw new Error("Failed to estimate final archive size");
     }
 
+    // Allocate a buffer that's large enough (add some padding for safety)
+    const bufferSize = Math.max(estimatedSize * 1.2, 1024 * 1024); // 20% padding, minimum 1MB
+    
+    const buffer = new ArrayBuffer(bufferSize);
+    const bufferPtr = ptr(buffer);
+
+    const resultSize = finalize_zip_in_memory_bytes(
+      this.handleId,
+      bufferPtr,
+      bufferSize,
+    );
+
     if (resultSize <= 0) {
-      throw new Error(
-        "Failed to finalize memory-based zip archive - buffer size exceeded 1GB",
-      );
+      if (resultSize === -2) {
+        throw new Error(`Failed to finalize memory-based zip archive - buffer too small. Estimated: ${estimatedSize}, allocated: ${bufferSize}`);
+      } else {
+        throw new Error("Failed to finalize memory-based zip archive - archive error");
+      }
     }
 
     // Create a new buffer with the actual size
     const actualBuffer = new ArrayBuffer(resultSize);
     const actualView = new Uint8Array(actualBuffer);
-
-    // biome-ignore lint/style/noNonNullAssertion: must be defined
-    const originalView = new Uint8Array(buffer!, 0, resultSize);
+    const originalView = new Uint8Array(buffer, 0, resultSize);
 
     actualView.set(originalView);
     this.handleId = -1;
