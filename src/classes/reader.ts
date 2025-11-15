@@ -322,7 +322,7 @@ export class ZipArchiveReader implements ZipReader {
 
     return data.buffer.slice(
       data.byteOffset,
-      data.byteOffset + data.byteLength
+      data.byteOffset + data.byteLength,
     ) as ArrayBuffer;
   }
 

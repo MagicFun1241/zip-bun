@@ -46,11 +46,10 @@ export async function zipDirectory(
 
       if (fileInfo.isFile()) {
         // Read the file content
-        const fileContent = await Bun.file(filePath).arrayBuffer();
-        const data = new Uint8Array(fileContent);
+        const fileContent = await Bun.file(filePath).bytes();
 
         // Add the file to the zip with its relative path
-        writer.addFile(file, data, compressionLevel);
+        writer.addFile(file, fileContent, compressionLevel);
       }
     }
   } finally {
@@ -110,11 +109,10 @@ export async function zipDirectoryToMemory(
 
       if (fileInfo.isFile()) {
         // Read the file content
-        const fileContent = await Bun.file(filePath).arrayBuffer();
-        const data = new Uint8Array(fileContent);
+        const fileContent = await Bun.file(filePath).bytes();
 
         // Add the file to the zip with its relative path
-        writer.addFile(file, data, compressionLevel);
+        writer.addFile(file, fileContent, compressionLevel);
       }
     }
 

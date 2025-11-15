@@ -154,7 +154,7 @@ export class ZipArchiveWriter implements ZipWriter {
 
     // Allocate a buffer that's large enough (add some padding for safety)
     const bufferSize = Math.max(estimatedSize * 1.2, 1024 * 1024); // 20% padding, minimum 1MB
-    
+
     const buffer = new ArrayBuffer(bufferSize);
     const bufferPtr = ptr(buffer);
 
@@ -166,9 +166,13 @@ export class ZipArchiveWriter implements ZipWriter {
 
     if (resultSize <= 0) {
       if (resultSize === -2) {
-        throw new Error(`Failed to finalize memory-based zip archive - buffer too small. Estimated: ${estimatedSize}, allocated: ${bufferSize}`);
+        throw new Error(
+          `Failed to finalize memory-based zip archive - buffer too small. Estimated: ${estimatedSize}, allocated: ${bufferSize}`,
+        );
       } else {
-        throw new Error("Failed to finalize memory-based zip archive - archive error");
+        throw new Error(
+          "Failed to finalize memory-based zip archive - archive error",
+        );
       }
     }
 
