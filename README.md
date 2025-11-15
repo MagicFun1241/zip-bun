@@ -100,7 +100,7 @@ console.log(`Archive contains ${reader.getFileCount()} files`);
 
 // List all files
 for (let i = 0; i < reader.getFileCount(); i++) {
-  const fileInfo = reader.getFileInfo(i);
+  const fileInfo = reader.getFileByIndex(i);
   console.log(`${fileInfo.filename}: ${fileInfo.uncompressedSize} bytes`);
 }
 
@@ -181,7 +181,7 @@ openMemoryArchive(data: Uint8Array | ArrayBuffer | DataView): ZipArchiveReader
 getFileCount(): number
 
 // Get information about a file by index
-getFileInfo(index: number): ZipFileInfo
+getFileByIndex(index: number): ZipFile
 
 // Extract a file by index
 extractFile(index: number): Uint8Array
@@ -198,12 +198,12 @@ close(): boolean
 
 ### Interfaces
 
-#### ZipFileInfo
+#### ZipFile
 
 Information about a file in a ZIP archive.
 
 ```typescript
-interface ZipFileInfo {
+interface ZipFile {
   filename: string;        // Name of the file
   comment: string;         // File comment
   uncompressedSize: number; // Original file size
@@ -296,7 +296,7 @@ import { openArchive } from "zip-bun";
 const reader = openArchive("backup.zip");
 
 for (let i = 0; i < reader.getFileCount(); i++) {
-  const fileInfo = reader.getFileInfo(i);
+  const fileInfo = reader.getFileByIndex(i);
   
   if (!fileInfo.directory) {
     const data = reader.extractFile(i);
@@ -490,7 +490,7 @@ import { openArchive } from "zip-bun";
 const reader = openArchive("archive.zip");
 
 for (let i = 0; i < reader.getFileCount(); i++) {
-  const fileInfo = reader.getFileInfo(i);
+  const fileInfo = reader.getFileByIndex(i);
   
   console.log(`File: ${fileInfo.filename}`);
   console.log(`  Size: ${fileInfo.uncompressedSize} bytes`);

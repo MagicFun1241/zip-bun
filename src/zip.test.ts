@@ -328,7 +328,7 @@ describe("ZipArchiveReader", () => {
   test("should get file info by index", () => {
     const reader = openArchive(testZipFile);
 
-    const fileInfo = reader.getFileInfo(0);
+    const fileInfo = reader.getFileByIndex(0);
     expect(fileInfo).toHaveProperty("filename");
     expect(fileInfo).toHaveProperty("uncompressedSize");
     expect(fileInfo).toHaveProperty("compressedSize");
@@ -428,7 +428,7 @@ describe("ZipArchiveReader", () => {
     const reader = openArchive(testZipFile);
 
     expect(() => {
-      reader.getFileInfo(999);
+      reader.getFileByIndex(999);
     }).toThrow();
 
     reader.close();
@@ -840,7 +840,7 @@ describe("Memory-based ZipArchiveReader", () => {
     // Open memory archive and get file info
     const reader = openMemoryArchive(zipData);
 
-    const fileInfo = reader.getFileInfo(0);
+    const fileInfo = reader.getFileByIndex(0);
     expect(fileInfo.filename).toBe("test.txt");
     expect(fileInfo.uncompressedSize).toBe(testTextData.length);
     expect(fileInfo.directory).toBe(false);
@@ -975,7 +975,7 @@ describe("Memory-based ZipArchiveReader", () => {
     const reader = openMemoryArchive(zipData);
     expect(reader.getFileCount()).toBe(1);
 
-    const fileInfo = reader.getFileInfo(0);
+    const fileInfo = reader.getFileByIndex(0);
     expect(fileInfo.filename).toBe("small.txt");
     expect(fileInfo.uncompressedSize).toBe(testTextData.length);
 
@@ -1000,7 +1000,7 @@ describe("Memory-based ZipArchiveReader", () => {
     const reader = openMemoryArchive(zipData);
     expect(reader.getFileCount()).toBe(1);
 
-    const fileInfo = reader.getFileInfo(0);
+    const fileInfo = reader.getFileByIndex(0);
     expect(fileInfo.filename).toBe("large.txt");
     expect(fileInfo.uncompressedSize).toBe(five_mb.length);
 
@@ -1047,7 +1047,7 @@ describe("Memory-based ZipArchiveReader", () => {
     const reader = openMemoryArchive(zipData);
     expect(reader.getFileCount()).toBe(1);
 
-    const fileInfo = reader.getFileInfo(0);
+    const fileInfo = reader.getFileByIndex(0);
     expect(fileInfo.filename).toBe("large_compressed.txt");
     expect(fileInfo.uncompressedSize).toBe(five_mb.length);
     expect(fileInfo.compressedSize).toBeLessThan(five_mb.length); // Should be compressed
