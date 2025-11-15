@@ -15,9 +15,13 @@ export function createMemoryArchive(): ZipArchiveWriter {
   return new ZipArchiveWriter();
 }
 
+export const readArchive = openArchive;
+
 export function openArchive(filename: string): ZipArchiveReader {
   return new ZipArchiveReader(filename);
 }
+
+export const readMemoryArchive = openMemoryArchive;
 
 export function openMemoryArchive(data: FileData): ZipArchiveReader {
   return new ZipArchiveReader(data);
@@ -65,7 +69,7 @@ export async function extractArchive(
     const fileCount = reader.getFileCount();
 
     for (let i = 0; i < fileCount; i++) {
-      const fileInfo = reader.getFileInfo(i);
+      const fileInfo = reader.getFileByIndex(i);
 
       if (!fileInfo.directory) {
         const data = reader.extractFile(i);

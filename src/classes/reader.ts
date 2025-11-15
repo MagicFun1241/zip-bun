@@ -1,5 +1,5 @@
-import { ptr, read } from "bun:ffi";
-import type { FileData, ZipFileInfo } from "../interfaces/file.ts";
+import { ptr } from "bun:ffi";
+import type { FileData, ZipFile } from "../interfaces/file.ts";
 import type { ZipReader } from "../interfaces/reader.ts";
 import { symbols } from "../symbols.ts";
 
@@ -9,10 +9,7 @@ const {
   find_file,
   get_file_count,
   get_file_info,
-  extract_file,
-  extract_file_by_name,
   extract_file_to_buffer,
-  free_extracted_data,
   close_zip,
 } = symbols;
 
@@ -61,11 +58,43 @@ export class ZipArchiveReader implements ZipReader {
     }
   }
 
+  files(): ZipFile[] {
+    const fileCount = this.getFileCount();
+    const files: ZipFile[] = [];
+
+    for (let i = 0; i < fileCount; i++) {
+      const fileInfo = this.getFileByIndex(i);
+      files.push(fileInfo);
+    }
+
+    return files;
+  }
+
+  filesIterator(): IterableIterator<ZipFile> {
+    const fileCount = this.getFileCount();
+    let index = 0;
+
+    return {
+      [Symbol.iterator]() {
+        return this;
+      },
+      next: (): IteratorResult<ZipFile> => {
+        if (index < fileCount) {
+          const fileInfo = this.getFileByIndex(index);
+          index++;
+          return { value: fileInfo, done: false };
+        } else {
+          return { value: null, done: true };
+        }
+      },
+    };
+  }
+
   getFileCount(): number {
     return get_file_count(this.handleId);
   }
 
-  getFileInfo(index: number): ZipFileInfo {
+  getFileByIndex(index: number): ZipFile {
     // Create a buffer for the file_info_t struct
     const infoBuffer = new ArrayBuffer(1024); // Size for file_info_t struct
     const infoPtr = ptr(infoBuffer);
@@ -105,29 +134,45 @@ export class ZipArchiveReader implements ZipReader {
     };
   }
 
+  readFile(index: number): Uint8Array {
+    return this.extractFile(index);
+  }
+
+  readFileByName(filename: string): Uint8Array {
+    return this.extractFileByName(filename);
+  }
+
+  readFileArrayBuffer(index: number): ArrayBuffer {
+    return this.extractFileArrayBuffer(index);
+  }
+
+  readFileBuffer(index: number): Buffer {
+    return this.extractFileBuffer(index);
+  }
+
   extractFileByName(filename: string): Uint8Array {
     // First find the file index
     const filenameBuffer = Buffer.from(`${filename}\0`, "utf8");
     const filenamePtr = ptr(filenameBuffer);
     const fileIndex = find_file(this.handleId, filenamePtr);
-    
+
     if (fileIndex < 0) {
       throw new Error(`File not found in archive: ${filename}`);
     }
-    
+
     // Get file info to know the size
     const infoBuffer = new ArrayBuffer(1024);
     const infoPtr = ptr(infoBuffer);
     const success = get_file_info(this.handleId, fileIndex, infoPtr);
-    
+
     if (!success) {
       throw new Error(`Failed to get file info for: ${filename}`);
     }
-    
+
     // Read the uncompressed size from the struct
     const view = new DataView(infoBuffer);
     const size = Number(view.getBigUint64(512, true));
-    
+
     // Create buffer and extract directly to it
     const data = new Uint8Array(size);
     const result = extract_file_to_buffer(
@@ -136,11 +181,11 @@ export class ZipArchiveReader implements ZipReader {
       ptr(data),
       size,
     );
-    
+
     if (result < 0) {
       throw new Error(`Failed to extract file: ${filename}`);
     }
-    
+
     return data;
   }
 
@@ -149,15 +194,15 @@ export class ZipArchiveReader implements ZipReader {
     const infoBuffer = new ArrayBuffer(1024);
     const infoPtr = ptr(infoBuffer);
     const success = get_file_info(this.handleId, index, infoPtr);
-    
+
     if (!success) {
       throw new Error(`Failed to get file info for index ${index}`);
     }
-    
+
     // Read the uncompressed size from the struct
     const view = new DataView(infoBuffer);
     const size = Number(view.getBigUint64(512, true));
-    
+
     // Create buffer and extract directly to it
     const data = new Uint8Array(size);
     const result = extract_file_to_buffer(
@@ -166,12 +211,26 @@ export class ZipArchiveReader implements ZipReader {
       ptr(data),
       size,
     );
-    
+
     if (result < 0) {
       throw new Error(`Failed to extract file at index ${index}`);
     }
-    
+
     return data;
+  }
+
+  extractFileBuffer(index: number) {
+    const data = this.extractFile(index);
+    return Buffer.from(data);
+  }
+
+  extractFileArrayBuffer(index: number) {
+    const data = this.extractFile(index);
+
+    return data.buffer.slice(
+      data.byteOffset,
+      data.byteOffset + data.byteLength
+    ) as ArrayBuffer;
   }
 
   findFile(filename: string): number {

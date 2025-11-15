@@ -1,4 +1,4 @@
-export interface ZipFileInfo {
+export interface ZipFile {
   filename: string;
   comment: string;
 
