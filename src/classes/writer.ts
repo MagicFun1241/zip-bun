@@ -13,10 +13,38 @@ const {
   add_file_to_zip,
 } = symbols;
 
+/**
+ * Implementation of {@link ZipWriter} for creating and writing files to ZIP archives.
+ * Supports both file-based archives (written to disk) and memory-based archives (stored in memory).
+ *
+ * @example
+ * ```typescript
+ * // Creating a file-based archive
+ * const writer = new ZipArchiveWriter('output.zip');
+ * writer.addFile('file.txt', new TextEncoder().encode('Hello World'));
+ * writer.finalize();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Creating a memory-based archive
+ * const writer = new ZipArchiveWriter();
+ * writer.addFile('document.txt', buffer1);
+ * writer.addFile('image.png', buffer2, 6); // Compression level 6
+ * const zipData = writer.finalizeToMemory();
+ * ```
+ */
 export class ZipArchiveWriter implements ZipWriter {
+  /** Internal handle ID for the native zip archive. */
   private handleId: number;
+  /** Flag indicating whether this is a memory-based or file-based archive. */
   private isMemoryBased: boolean;
 
+  /**
+   * Creates a new ZIP archive writer.
+   * @param filename - Optional filename for file-based archives. If omitted, creates a memory-based archive.
+   * @throws Error if the archive cannot be created.
+   */
   constructor(filename?: string) {
     if (filename) {
       // File-based zip
@@ -40,6 +68,14 @@ export class ZipArchiveWriter implements ZipWriter {
     }
   }
 
+  /**
+   * Adds a file to the ZIP archive.
+   * @param filename - The name/path for the file within the archive.
+   * @param data - The file content to add (Uint8Array, ArrayBuffer, Buffer, or DataView).
+   * @param compressionLevel - Optional compression level (0-9). Defaults to no compression if not specified.
+   * @returns True if the file was successfully added, false otherwise.
+   * @throws Error if the archive has already been finalized.
+   */
   addFile(
     filename: string,
     data: FileData,
@@ -75,6 +111,12 @@ export class ZipArchiveWriter implements ZipWriter {
     );
   }
 
+  /**
+   * Finalizes a file-based ZIP archive and writes it to disk.
+   * Must only be called for archives created with a filename.
+   * @returns True if finalization was successful.
+   * @throws Error if the archive has already been finalized or for memory-based archives.
+   */
   finalize(): boolean {
     if (this.handleId === -1) {
       throw new Error("ZipArchiveWriter has already been finalized");
@@ -89,6 +131,12 @@ export class ZipArchiveWriter implements ZipWriter {
     return Boolean(result);
   }
 
+  /**
+   * Finalizes a memory-based ZIP archive and returns the compressed data.
+   * Must only be called for archives created without a filename.
+   * @returns The complete ZIP archive as a Uint8Array.
+   * @throws Error if the archive has already been finalized or for file-based archives.
+   */
   finalizeToMemory(): Uint8Array {
     if (this.handleId === -1) {
       throw new Error("ZipArchiveWriter has already been finalized");
