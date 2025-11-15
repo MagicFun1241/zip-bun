@@ -33,7 +33,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-# test files
-test_directory
+# test generated files (but keep test_directory for tests)
 extracted_directory
-*.zip
+test_*.zip
+convenience_test.zip
+roundtrip_test.zip
+compression_test.zip
+temp_*.zip
