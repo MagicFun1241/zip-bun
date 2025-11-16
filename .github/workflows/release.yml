@@ -26,6 +26,9 @@ jobs:
           bun run build
           cp src/*.h dist/
           cp src/*.c dist/
+          echo "[install]" >> bunfig.toml
+          echo 'registry = { url = "https://registry.npmjs.org", token = "${{ secrets.NPM_TOKEN }}" }' >> bunfig.toml
+          cat bunfig.toml
           
       - name: Publish to npm
         run: bun publish
