@@ -1,7 +1,22 @@
 import { cc } from "bun:ffi";
 import { join } from "node:path";
 
-const includePath = import.meta.dir;
+function getIncludePath(): string | null {
+  // Attempt to get the directory of the current module
+  if (import.meta && import.meta.dir) {
+    return import.meta.dir;
+  }
+
+  // Fallback to a default path (adjust as necessary)
+  const defaultPath = join(process.cwd(), "node_modules/zip-bun/dist");
+  return defaultPath || null;
+}
+
+const includePath = getIncludePath();
+if (!includePath) {
+  throw new Error("Could not determine include path for zip-bun");
+}
+
 const wrapperPath = join(includePath, "zip_wrapper.c");
 
 // Compile the C code with all the zip functions
