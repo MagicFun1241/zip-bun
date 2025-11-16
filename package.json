@@ -1,8 +1,9 @@
 {
   "name": "zip-bun",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "description": "A high-performance zip archive library for Bun with native C bindings",
-  "main": "dist/index.js",
+  "main": "dist/index.mjs",
+  "types": "dist/index.d.mts",
   "type": "module",
   "files": [
     "dist",
